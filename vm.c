@@ -7,6 +7,8 @@
 #include "proc.h"
 #include "elf.h"
 
+static char buffer[PGSIZE];// for IO to Swap file
+
 extern char data[];  // defined by kernel.ld
 pde_t *kpgdir;  // for use in scheduler()
 
@@ -216,6 +218,64 @@ loaduvm(pde_t *pgdir, char *addr, struct inode *ip, uint offset, uint sz)
   return 0;
 }
 
+int
+InitPage(pde_t *pgdir, void *va, uint pa, int index){
+  if(mappages(pgdir, va, PGSIZE, pa, PTE_W|PTE_U) < 0){
+      cprintf("allocuvm out of memory (2)\n");
+      deallocuvm(pgdir, PGSIZE, PGSIZE);
+      char *v = P2V(pa);
+      kfree(v);
+      return 0;
+    }
+    myproc()->main_mem_pages[index].state_used = 1;
+    myproc()->main_mem_pages[index].v_addr = va;
+    myproc()->main_mem_pages[index].page_dir = pgdir;
+  return 1;
+}
+
+int
+SwapPage(pde_t *pgdir, void *va){
+  int sp_index = 0;
+  int mm_index = 0;
+ 
+  while(sp_index<16){
+    //finidng free page in swap file memory
+    if(!myproc()->swap_file_pages[sp_index].state_used){
+      break;
+    }
+    sp_index++;
+  }
+  while(mm_index<16){
+    //finidng used page in main memory
+    if(myproc()->main_mem_pages[mm_index].state_used){
+      break;
+    }
+    mm_index++;
+  }
+  uint pa = V2P(va);
+
+  writeToSwapFile(myproc(), pa, sp_index*PGSIZE, PGSIZE); 
+  myproc()->swap_file_pages[sp_index].state_used =1;
+  myproc()->swap_file_pages[sp_index].page_dir = myproc()->main_mem_pages[mm_index].page_dir;
+
+  void *va = myproc()->main_mem_pages[mm_index].v_addr;
+  
+  kfree(va);
+  myproc()->main_mem_pages[mm_index].state_used = 0;
+
+  // update pte flags
+  pte_t *pte = walkpgdir(pgdir, va, 0);
+
+  *pte |= PTE_PG;
+  *pte &= ~PTE_P;
+  lcr3(V2P(myproc()->pgdir));
+
+  if(!InitPage(pgdir, va, pa, mm_index)){
+    panic("swap func: couldnt init page");
+  }
+  return 1;
+}
+
 // Allocate page tables and physical memory to grow process from oldsz to
 // newsz, which need not be page aligned.  Returns new size or 0 on error.
 int
@@ -238,10 +298,22 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       return 0;
     }
     memset(mem, 0, PGSIZE);
+
     // avoiding init & shell
     if(myproc()->pid > 2){
-   
+      int i =0;
+      while(i<16){
+        //finidng free page in main memory
+        if(!myproc()->main_mem_pages[i].state_used){
+          InitPage(pgdir, (char*)a, V2P(mem), i);
+        }
+        i++;
+      }
+      //couldnt find a free page in main memory
+      SwapPage(pgdir, (char*)a);
     }
+
+    //init & shell act 
     if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
       cprintf("allocuvm out of memory (2)\n");
       deallocuvm(pgdir, newsz, oldsz);
@@ -252,6 +324,73 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 
 
   return newsz;
+}
+
+int             
+Handle_PGFLT(pde_t *pgdir, void* va){
+  void * old_va = PGROUNDDOWN((uint)va);
+  uint pa = kalloc();
+  int sp_index = 0;
+  int mm_index = 0;
+  char buffer[14];
+  char flag_found = 0;
+  while(mm_index<16){
+    //finidng free page in main memory
+    if(!myproc()->main_mem_pages[mm_index].state_used){
+      break; 
+      flag_found = 1
+    }
+    mm_index++;
+  }
+  if(mm_index> 15)
+    mm_index--;
+  // page out mm page
+  pte_t *pte = walkpgdir(pgdir, old_va, 1);
+  *pte =  PTE_P | PTE_W | PTE_U;
+  *pte &= ~PTE_PG; 
+  *pte |= pa;
+  int  i = 0;
+  while(myproc()->swap_file_pages[i].v_addr != old_va){
+    i++;
+  }
+  if(i>15)
+    panic("wow somthing wrong happend in PGFLT")
+  readFromSwapFile(myproc(), &buffer, i*PGSIZE, PGSIZE); 
+  myproc()->main_mem_pages[sp_index] = myproc()->swap_file_pages[i];
+  myproc()->swap_file_pages[i].state_used = 0;
+  if(!flag_found){
+    memmove(old_va, buffer, PGSIZE);
+  } else{
+    uint mm_pa = rcr2(main_mem_pages[mm_index].v_addr);
+    writeToSwapFile(myproc(), mm_pa, sp_index*PGSIZE, PGSIZE); 
+    int sp_free_i = 0;
+    while(sp_free_i<16){
+      //finidng free page in swap file
+      if(!myproc()->swap_file_pages[sp_free_i].state_used){
+        break; 
+      }
+    sp_free_i++;
+    }
+    myproc()->swap_file_pages[sp_free_i].state_used =1;
+    myproc()->swap_file_pages[sp_free_i].page_dir = myproc()->main_mem_pages[mm_index].page_dir;
+    myproc()->swap_file_pages[sp_free_i].v_addr = myproc()->main_mem_pages[mm_index].v_addr;
+
+    // update pte flags
+    pte_t *pte = walkpgdir(pgdir, myproc()->swap_file_pages[sp_free_i].v_addr, 0);
+
+    *pte |= PTE_PG;
+    *pte &= ~PTE_P;
+    lcr3(V2P(myproc()->pgdir));
+
+    pte_t *pte_sp_page = walkpgdir(pgdir, old_va, 1);
+    *pte_sp_page =  PTE_P | PTE_W | PTE_U;
+    *pte_sp_page &= ~PTE_PG; 
+    *pte_sp_page |= pa;
+    
+    char *v = P2V(mm_pa);
+    kfree(v);
+    memmove(old_va, buffer, PGSIZE);
+  }
 }
 
 // Deallocate user pages to bring the process size from oldsz to
@@ -278,6 +417,14 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         panic("kfree");
       char *v = P2V(pa);
       kfree(v);
+      int i =0;
+      while(myproc()->main_mem_pages[i].v_addr != a){
+        i++;
+      }
+      if(i<16 && myproc()->main_mem_pages[i].page_dir == pgdir){
+        myproc()->main_mem_pages[i].state_used = 0;
+        myproc()->main_mem_pages[i].page_dir = 0;
+      }
       *pte = 0;
     }
   }
@@ -341,6 +488,13 @@ copyuvm(pde_t *pgdir, uint sz)
     if(mappages(d, (void*)i, PGSIZE, V2P(mem), flags) < 0) {
       kfree(mem);
       goto bad;
+    }
+    // check if neccesry
+    if(1 == PTE_PG & *pte){
+      *d |= PTE_PG;
+      *d &= ~PTE_P;
+      lcr3(V2P(myproc()->pgdir));
+      continue;
     }
   }
   return d;

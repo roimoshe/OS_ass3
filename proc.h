@@ -1,5 +1,6 @@
 #define  MAX_PSYC_PAGES 16
 #define  MAX_TOTAL_PAGES 32
+#define  PTE_PG 0x200 
 
 // Per-CPU state
 struct cpu {
@@ -54,8 +55,8 @@ struct proc {
   char name[16];               // Process name (debugging)
   //Swap file. must initiate with create swap file
   struct file *swapFile;      //page file
-  unsigned char main_mem_pages[4]; //page in main memmory
-   unsigned char sweap_file_pages[4]; //page in seap file
+  struct page main_mem_pages[MAX_PSYC_PAGES]; //page in main memmory
+  struct page swap_file_pages[MAX_PSYC_PAGES]; //page in swap file
 };
 
 // Process memory is laid out contiguously, low addresses first:
@@ -69,5 +70,5 @@ struct page {
   char state;
   int v_addr;
   pde_t page_dir;
-  int offset;
+  uint offset;
 };

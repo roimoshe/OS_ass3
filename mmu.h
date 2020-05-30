@@ -1,6 +1,9 @@
 // This file contains definitions for the
 // x86 memory management unit (MMU).
 
+// page flag
+#define  PTE_PG 0x200 
+
 // Eflags register
 #define FL_IF           0x00000200      // Interrupt Enable
 
