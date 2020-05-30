@@ -1,3 +1,6 @@
+#define  MAX_PSYC_PAGES 16
+#define  MAX_TOTAL_PAGES 32
+
 // Per-CPU state
 struct cpu {
   uchar apicid;                // Local APIC ID
@@ -51,6 +54,8 @@ struct proc {
   char name[16];               // Process name (debugging)
   //Swap file. must initiate with create swap file
   struct file *swapFile;      //page file
+  unsigned char main_mem_pages[4]; //page in main memmory
+   unsigned char sweap_file_pages[4]; //page in seap file
 };
 
 // Process memory is laid out contiguously, low addresses first:
@@ -58,3 +63,11 @@ struct proc {
 //   original data and bss
 //   fixed-size stack
 //   expandable heap
+
+// page struct
+struct page {
+  char state;
+  int v_addr;
+  pde_t page_dir;
+  int offset;
+};
