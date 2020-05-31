@@ -298,27 +298,28 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       return 0;
     }
     memset(mem, 0, PGSIZE);
-
+      int i =0;
     // avoiding init & shell
     if(myproc()->pid > 2){
-      int i =0;
       while(i<16){
         //finidng free page in main memory
         if(!myproc()->main_mem_pages[i].state_used){
           InitPage(pgdir, (char*)a, V2P(mem), i);
+          break;
         }
         i++;
       }
       //couldnt find a free page in main memory
       SwapPage(pgdir, (char*)a);
     }
-
-    //init & shell act 
-    if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
-      cprintf("allocuvm out of memory (2)\n");
-      deallocuvm(pgdir, newsz, oldsz);
-      kfree(mem);
-      return 0;
+    else{
+      //init & shell act 
+      if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
+        cprintf("allocuvm out of memory (2)\n");
+        deallocuvm(pgdir, newsz, oldsz);
+        kfree(mem);
+        return 0;
+      }
     }
   }
 

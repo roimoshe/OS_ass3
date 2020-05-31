@@ -26,7 +26,6 @@ pinit(void)
   initlock(&ptable.lock, "ptable");
 }
 
-// Must be called with interrupts disabled
 int
 cpuid() {
   return mycpu()-cpus;
@@ -36,6 +35,7 @@ cpuid() {
 // rescheduled between reading lapicid and running through the loop.
 struct cpu*
 mycpu(void)
+// Must be called with interrupts disabled
 {
   int apicid, i;
   
@@ -111,6 +111,11 @@ found:
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
+
+  //set up Swap file
+  if(createSwapFile(p)){
+    panic("failed create Swap file");
+  }
 
   return p;
 }

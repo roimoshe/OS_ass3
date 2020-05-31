@@ -77,7 +77,16 @@ trap(struct trapframe *tf)
             cpuid(), tf->cs, tf->eip);
     lapiceoi();
     break;
+  //handling page fault
+  case T_PGFLT:
+    void *va = rcr2();
+    pte_t *pte = walkpgdir(myproc()->pgdir, va, 0);
+    // if the flag is on handle it
+    if((*pte |= PTE_PG) == PTE_PG){
+      Handle_PGFLT(myproc()->pgdir, va);
+    }
 
+    break;
   //PAGEBREAK: 13
   default:
     if(myproc() == 0 || (tf->cs&3) == 0){

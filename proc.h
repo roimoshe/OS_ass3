@@ -1,6 +1,5 @@
 #define  MAX_PSYC_PAGES 16
 #define  MAX_TOTAL_PAGES 32
-#define  PTE_PG 0x200 
 
 // Per-CPU state
 struct cpu {
@@ -67,8 +66,8 @@ struct proc {
 
 // page struct
 struct page {
-  char state;
-  int v_addr;
-  pde_t page_dir;
-  uint offset;
+  char state_used;
+  void *v_addr;
+  pde_t *page_dir;
+  //uint spfile_offset;
 };
