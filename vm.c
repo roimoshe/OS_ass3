@@ -245,6 +245,10 @@ SwapPage(pde_t *pgdir, void *va){
     }
     sp_index++;
   }
+  if(sp_index > 15){
+    //proc has a max 32 pages
+    return 0;
+  }
   while(mm_index<16){
     //finidng used page in main memory
     if(myproc()->main_mem_pages[mm_index].state_used){
@@ -252,19 +256,19 @@ SwapPage(pde_t *pgdir, void *va){
     }
     mm_index++;
   }
-  uint pa = V2P(va);
+  void *mm_va = myproc()->main_mem_pages[mm_index].v_addr;
+
+  uint pa = V2P(mm_va);
 
   writeToSwapFile(myproc(), pa, sp_index*PGSIZE, PGSIZE); 
   myproc()->swap_file_pages[sp_index].state_used =1;
   myproc()->swap_file_pages[sp_index].page_dir = myproc()->main_mem_pages[mm_index].page_dir;
-
-  void *va = myproc()->main_mem_pages[mm_index].v_addr;
   
-  kfree(va);
+  kfree(mm_va);
   myproc()->main_mem_pages[mm_index].state_used = 0;
 
   // update pte flags
-  pte_t *pte = walkpgdir(pgdir, va, 0);
+  pte_t *pte = walkpgdir(pgdir, mm_va, 0);
 
   *pte |= PTE_PG;
   *pte &= ~PTE_P;
@@ -298,7 +302,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       return 0;
     }
     memset(mem, 0, PGSIZE);
-      int i =0;
+    int i =0;
     // avoiding init & shell
     if(myproc()->pid > 2){
       while(i<16){
@@ -310,7 +314,10 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         i++;
       }
       //couldnt find a free page in main memory
-      SwapPage(pgdir, (char*)a);
+      if(i>15){
+          SwapPage(pgdir, (char*)a);
+      }
+      continue;
     }
     else{
       //init & shell act 
@@ -323,7 +330,6 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
     }
   }
 
-
   return newsz;
 }
 
@@ -333,13 +339,12 @@ Handle_PGFLT(pde_t *pgdir, void* va){
   uint pa = kalloc();
   int sp_index = 0;
   int mm_index = 0;
-  char buffer[14];
   char flag_found = 0;
   while(mm_index<16){
     //finidng free page in main memory
     if(!myproc()->main_mem_pages[mm_index].state_used){
       break; 
-      flag_found = 1
+      flag_found = 1;
     }
     mm_index++;
   }
@@ -355,14 +360,14 @@ Handle_PGFLT(pde_t *pgdir, void* va){
     i++;
   }
   if(i>15)
-    panic("wow somthing wrong happend in PGFLT")
+    panic("wow somthing wrong happend in PGFLT");
   readFromSwapFile(myproc(), &buffer, i*PGSIZE, PGSIZE); 
   myproc()->main_mem_pages[sp_index] = myproc()->swap_file_pages[i];
   myproc()->swap_file_pages[i].state_used = 0;
   if(!flag_found){
     memmove(old_va, buffer, PGSIZE);
   } else{
-    uint mm_pa = rcr2(main_mem_pages[mm_index].v_addr);
+    uint mm_pa = V2P(myproc()->main_mem_pages[mm_index].v_addr);
     writeToSwapFile(myproc(), mm_pa, sp_index*PGSIZE, PGSIZE); 
     int sp_free_i = 0;
     while(sp_free_i<16){
@@ -490,7 +495,7 @@ copyuvm(pde_t *pgdir, uint sz)
       kfree(mem);
       goto bad;
     }
-    // check if neccesry
+    // TODO: check if neccesry
     if(1 == PTE_PG & *pte){
       *d |= PTE_PG;
       *d &= ~PTE_P;
