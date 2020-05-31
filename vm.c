@@ -225,16 +225,16 @@ InitPage(pde_t *pgdir, void *va, uint pa, int index){
       deallocuvm(pgdir, PGSIZE, PGSIZE);
       char *v = P2V(pa);
       kfree(v);
-      return 0;
+      return 1;
     }
     myproc()->main_mem_pages[index].state_used = 1;
     myproc()->main_mem_pages[index].v_addr = va;
     myproc()->main_mem_pages[index].page_dir = pgdir;
-  return 1;
+  return 0;
 }
 
 int
-SwapPage(pde_t *pgdir, void *va){
+SwapOutPage(pde_t *pgdir){
   int sp_index = 0;
   int mm_index = 0;
  
@@ -246,7 +246,7 @@ SwapPage(pde_t *pgdir, void *va){
     sp_index++;
   }
   if(sp_index > 15){
-    //proc has a max 32 pages
+    //proc has a max MAX_TOTAL_PAGES pages
     return 0;
   }
   while(mm_index<16){
@@ -256,28 +256,40 @@ SwapPage(pde_t *pgdir, void *va){
     }
     mm_index++;
   }
+  if(mm_index>15)
+    panic("swappage: somthing wrong");
+
   void *mm_va = myproc()->main_mem_pages[mm_index].v_addr;
+  //uint pa = V2P(mm_va);
 
-  uint pa = V2P(mm_va);
-
-  writeToSwapFile(myproc(), pa, sp_index*PGSIZE, PGSIZE); 
+  writeToSwapFile(myproc(), mm_va, sp_index*PGSIZE, PGSIZE); 
   myproc()->swap_file_pages[sp_index].state_used =1;
   myproc()->swap_file_pages[sp_index].page_dir = myproc()->main_mem_pages[mm_index].page_dir;
-  
-  kfree(mm_va);
+   
   myproc()->main_mem_pages[mm_index].state_used = 0;
 
   // update pte flags
   pte_t *pte = walkpgdir(pgdir, mm_va, 0);
+  uint pa = PTE_ADDR(*pte);
+  memset(pa, 0, PGSIZE);//Todo: pa or va?
 
   *pte |= PTE_PG;
   *pte &= ~PTE_P;
   lcr3(V2P(myproc()->pgdir));
+  return pa;
+}
 
-  if(!InitPage(pgdir, va, pa, mm_index)){
-    panic("swap func: couldnt init page");
+int    
+InitFreeMemPage(uint pa, void *va){
+  int i =0;
+  while(i<16){
+    //finidng free page in main memory
+    if(!myproc()->main_mem_pages[i].state_used){
+      return InitPage(myproc()->pgdir, va, pa, i);
+    }
+    i++;
   }
-  return 1;
+  return -1;
 }
 
 // Allocate page tables and physical memory to grow process from oldsz to
@@ -315,7 +327,12 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       }
       //couldnt find a free page in main memory
       if(i>15){
-          SwapPage(pgdir, (char*)a);
+        kfree(mem);
+        uint pa = SwapOutPage(pgdir);
+        if(pa == 0){
+          //to much pages for the proc TODO: exit proc
+        }
+        InitFreeMemPage(pa, (char*)a);
       }
       continue;
     }
@@ -329,14 +346,13 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       }
     }
   }
-
   return newsz;
 }
 
 int             
 Handle_PGFLT(pde_t *pgdir, void* va){
   void * old_va = PGROUNDDOWN((uint)va);
-  uint pa = kalloc();
+  uint pa = V2P(kalloc());
   int sp_index = 0;
   int mm_index = 0;
   char flag_found = 0;

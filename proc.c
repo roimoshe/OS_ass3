@@ -116,6 +116,11 @@ found:
   if(createSwapFile(p)){
     panic("failed create Swap file");
   }
+  //alloc the proc pages
+  for(int i; i< 16; i++){
+    p->main_mem_pages[i].state_used=0;
+    p->swap_file_pages[i].state_used=0;
+  }
 
   return p;
 }
