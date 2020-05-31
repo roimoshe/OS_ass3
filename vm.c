@@ -230,6 +230,7 @@ InitPage(pde_t *pgdir, void *va, uint pa, int index){
     myproc()->main_mem_pages[index].state_used = 1;
     myproc()->main_mem_pages[index].v_addr = va;
     myproc()->main_mem_pages[index].page_dir = pgdir;
+    //Todo: need to update lcr3?
   return 0;
 }
 
@@ -350,7 +351,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 }
 
 int
-SwapFromFilePage(void *va){
+ImportFromFilePageToBuffer(void *va){
   int  i = 0;
   while(myproc()->swap_file_pages[i].v_addr != va){
     i++;
@@ -371,6 +372,10 @@ Handle_PGFLT(pde_t *pgdir, void* va){
   int sp_index = 0;
   int mm_index = 0;
   char flag_found = 0;
+    
+  // free the page to buffer from swap file
+  int i = ImportFromFilePageToBuffer(align_va);
+
   while(mm_index<16){
     //finidng free page in main memory
     if(!myproc()->main_mem_pages[mm_index].state_used){
@@ -380,9 +385,6 @@ Handle_PGFLT(pde_t *pgdir, void* va){
     }
     mm_index++;
   }
-  
-  // free the page to buffer from swap file
-  int i = SwapFromFilePage(align_va);
 
   if(mm_index> 15){
     // page out mm page
@@ -391,46 +393,11 @@ Handle_PGFLT(pde_t *pgdir, void* va){
       //TODO: exit proc
     }
   }
-
-  pte_t *pte = walkpgdir(pgdir, align_va, 1);
-  *pte =  PTE_P | PTE_W | PTE_U;
-  *pte |= pa;  
-
-  //myproc()->main_mem_pages[sp_index] = myproc()->swap_file_pages[i];
- 
-  if(!flag_found){
-    memmove(align_va, buffer, PGSIZE);
-  } else{
-    uint mm_pa = V2P(myproc()->main_mem_pages[mm_index].v_addr);
-    writeToSwapFile(myproc(), mm_pa, sp_index*PGSIZE, PGSIZE); 
-    int sp_free_i = 0;
-    while(sp_free_i<16){
-      //finidng free page in swap file
-      if(!myproc()->swap_file_pages[sp_free_i].state_used){
-        break; 
-      }
-    sp_free_i++;
-    }
-    myproc()->swap_file_pages[sp_free_i].state_used =1;
-    myproc()->swap_file_pages[sp_free_i].page_dir = myproc()->main_mem_pages[mm_index].page_dir;
-    myproc()->swap_file_pages[sp_free_i].v_addr = myproc()->main_mem_pages[mm_index].v_addr;
-
-    // update pte flags
-    pte_t *pte = walkpgdir(pgdir, myproc()->swap_file_pages[sp_free_i].v_addr, 0);
-
-    *pte |= PTE_PG;
-    *pte &= ~PTE_P;
-    lcr3(V2P(myproc()->pgdir));
-
-    pte_t *pte_sp_page = walkpgdir(pgdir, align_va, 1);
-    *pte_sp_page =  PTE_P | PTE_W | PTE_U;
-    *pte_sp_page &= ~PTE_PG; 
-    *pte_sp_page |= pa;
-    
-    char *v = P2V(mm_pa);
-    kfree(v);
-    memmove(align_va, buffer, PGSIZE);
-  }
+  
+  if(InitFreeMemPage(pa, align_va))
+    return -1;
+  memmove(align_va, buffer, PGSIZE);
+  return 0;
 }
 
 // Deallocate user pages to bring the process size from oldsz to

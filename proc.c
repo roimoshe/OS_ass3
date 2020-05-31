@@ -6,6 +6,7 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+static char buffer[];// for IO to Swap file
 
 struct {
   struct spinlock lock;
@@ -113,9 +114,12 @@ found:
   p->context->eip = (uint)forkret;
 
   //set up Swap file
-  if(createSwapFile(p)){
-    panic("failed create Swap file");
+  if(p->pid>2){
+    if(createSwapFile(p)){
+      panic("failed create Swap file");
+    }
   }
+
   //alloc the proc pages
   for(int i; i< 16; i++){
     p->main_mem_pages[i].state_used=0;
@@ -205,6 +209,16 @@ fork(void)
     np->kstack = 0;
     np->state = UNUSED;
     return -1;
+  }
+
+  if(curproc->pid>2){
+    for(int i=0;i<16;i++){
+      readFromSwapFile(curproc,buffer,i*PGSIZE, PGSIZE);
+      writeToSwapFile(np,buffer,i*PGSIZE, PGSIZE);
+    }
+
+    memmove(curproc->main_mem_pages, np->main_mem_pages, sizeof(struct page)*16);
+    memmove(curproc->swap_file_pages, np->swap_file_pages, sizeof(struct page)*16);
   }
   np->sz = curproc->sz;
   np->parent = curproc;
@@ -305,6 +319,17 @@ wait(void)
         p->name[0] = 0;
         p->killed = 0;
         p->state = UNUSED;
+        if(p->pid>2){
+          // free proc pages
+          int i =0;
+          while(i< 16){
+              p->swap_file_pages[i].state_used =0;
+              p->main_mem_pages[i].state_used =0;
+              i++;
+          }
+          // remove swap file
+          removeSwapFile(p);
+        }
         release(&ptable.lock);
         return pid;
       }
