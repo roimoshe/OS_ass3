@@ -77,13 +77,16 @@ trap(struct trapframe *tf)
             cpuid(), tf->cs, tf->eip);
     lapiceoi();
     break;
-  //handling page fault
+  //handling page fault TODO: check if segfault create t_PGFLT
   case T_PGFLT:
     void *va = rcr2();
     pte_t *pte = walkpgdir(myproc()->pgdir, va, 0);
-    // if the flag is on handle it
-    if((*pte |= PTE_PG) == PTE_PG){
-      Handle_PGFLT(myproc()->pgdir, va);
+    
+    // if the flag is on-> handle it
+    if(*pte & PTE_PG){
+      if(Handle_PGFLT(myproc()->pgdir, va)){
+        panic("wrong page fault handling");
+      }
     }
 
     break;

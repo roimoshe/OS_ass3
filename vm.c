@@ -7,9 +7,10 @@
 #include "proc.h"
 #include "elf.h"
 
-static char buffer[PGSIZE];// for IO to Swap file
+static char buffer[];// for IO to Swap file
 
 extern char data[];  // defined by kernel.ld
+
 pde_t *kpgdir;  // for use in scheduler()
 
 // Set up CPU's kernel segment descriptors.
