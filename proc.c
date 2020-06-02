@@ -286,6 +286,11 @@ exit(void)
     }
   }
 
+  //remove swap file
+  if(curproc->pid>2){
+     // remove swap file
+     removeSwapFile(curproc);
+  }
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
   sched();
@@ -329,7 +334,7 @@ wait(void)
               i++;
           }
           // remove swap file
-          removeSwapFile(p);
+          //removeSwapFile(p);
         }
         release(&ptable.lock);
         return pid;

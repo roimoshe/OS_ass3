@@ -1744,7 +1744,7 @@ rand()
   randstate = randstate * 1664525 + 1013904223;
   return randstate;
 }
-
+/*
 int
 main(int argc, char *argv[])
 {
@@ -1800,4 +1800,35 @@ main(int argc, char *argv[])
   exectest();
 
   exit();
+}
+*/
+
+// our tests not  the real usertests Todo: delete
+#define PGSIZE          4096    // bytes mapped by a page
+
+volatile int func(volatile int *tmp){
+  *tmp = *tmp + 1;
+  return 3;
+}
+
+int
+main(int argc, char *argv[])
+{
+  printf(1,"-------------Task 1 Test-----------\n");
+  char *a = (char *)sbrk(13*PGSIZE);
+  volatile int *pointer;
+  pointer = (int *)(a + 12*PGSIZE);
+  printf(1, "accessing memory\n");
+  *pointer = 12;
+  printf(1, "%d\n", *pointer);
+  printf(1, "allocating more memory\n");
+  sbrk(PGSIZE);
+  printf(1, "accessing memory\n");
+  *pointer = (*pointer) + 8;
+  printf(1, "%d\n", *pointer);
+  sbrk(14*PGSIZE);
+  pointer = (int *)(a + PGSIZE * 26);
+  *pointer = 99;
+  func(pointer);
+  printf(1, "%d\n", *pointer);
 }
