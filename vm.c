@@ -355,7 +355,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 int
 ImportFromFilePageToBuffer(void *va){
   int  i = 0;
-  while(myproc()->swap_file_pages[i].v_addr != va || myproc()->swap_file_pages[i].state_used == 0){
+  while((myproc()->swap_file_pages[i].v_addr != va || myproc()->swap_file_pages[i].state_used == 0) && i< 16){
     i++;
   }
   if(i>15)
@@ -434,15 +434,17 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         panic("kfree");
       char *v = P2V(pa);
       kfree(v);
-      int i =0;
-      while((uint)myproc()->main_mem_pages[i].v_addr != a){
-        i++;
+      if(myproc()->pid>2){
+        int i =0;
+        while(((uint)myproc()->main_mem_pages[i].v_addr != a) && i<16){
+          i++;
+        }
+        if(i<16 && myproc()->main_mem_pages[i].page_dir == pgdir){
+          myproc()->main_mem_pages[i].state_used = 0;
+          myproc()->main_mem_pages[i].page_dir = 0;
+        }
+        *pte = 0;
       }
-      if(i<16 && myproc()->main_mem_pages[i].page_dir == pgdir){
-        myproc()->main_mem_pages[i].state_used = 0;
-        myproc()->main_mem_pages[i].page_dir = 0;
-      }
-      *pte = 0;
     }
   }
   return newsz;
