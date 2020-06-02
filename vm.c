@@ -267,6 +267,7 @@ SwapOutPage(pde_t *pgdir){
   writeToSwapFile(myproc(), mm_va, sp_index*PGSIZE, PGSIZE); 
   myproc()->swap_file_pages[sp_index].state_used =1;
   myproc()->swap_file_pages[sp_index].page_dir = myproc()->main_mem_pages[mm_index].page_dir;
+  myproc()->swap_file_pages[sp_index].v_addr = mm_va;
    
   myproc()->main_mem_pages[mm_index].state_used = 0;
 
