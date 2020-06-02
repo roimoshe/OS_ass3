@@ -6,7 +6,7 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
-static char buffer[];// for IO to Swap file
+static char buffer[PGSIZE];// for IO to Swap file
 
 struct {
   struct spinlock lock;
@@ -121,7 +121,7 @@ found:
   }
 
   //alloc the proc pages
-  for(int i; i< 16; i++){
+  for(int i = 0; i < 16; i++){
     p->main_mem_pages[i].state_used=0;
     p->swap_file_pages[i].state_used=0;
   }
@@ -213,12 +213,14 @@ fork(void)
 
   if(curproc->pid>2){
     for(int i=0;i<16;i++){
-      readFromSwapFile(curproc,buffer,i*PGSIZE, PGSIZE);
-      writeToSwapFile(np,buffer,i*PGSIZE, PGSIZE);
+      if (curproc->swap_file_pages[i].state_used){
+        readFromSwapFile(curproc,buffer,i*PGSIZE, PGSIZE);
+        writeToSwapFile(np,buffer,i*PGSIZE, PGSIZE);
+      }
     }
 
-    memmove(curproc->main_mem_pages, np->main_mem_pages, sizeof(struct page)*16);
-    memmove(curproc->swap_file_pages, np->swap_file_pages, sizeof(struct page)*16);
+    memmove(curproc->main_mem_pages, np->main_mem_pages, sizeof(struct page)*16);// TODO: check address correctness
+    memmove(curproc->swap_file_pages, np->swap_file_pages, sizeof(struct page)*16);// TODO: check address correctness
   }
   np->sz = curproc->sz;
   np->parent = curproc;
@@ -241,7 +243,6 @@ fork(void)
   np->state = RUNNABLE;
 
   release(&ptable.lock);
-
   return pid;
 }
 

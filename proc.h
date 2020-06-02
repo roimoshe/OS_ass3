@@ -37,6 +37,14 @@ struct context {
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+// page struct
+struct page {
+  char state_used;
+  void *v_addr;
+  pde_t *page_dir;
+  //uint spfile_offset;
+};
+
 // Per-process state
 struct proc {
   uint sz;                     // Size of process memory (bytes)
@@ -63,11 +71,3 @@ struct proc {
 //   original data and bss
 //   fixed-size stack
 //   expandable heap
-
-// page struct
-struct page {
-  char state_used;
-  void *v_addr;
-  pde_t *page_dir;
-  //uint spfile_offset;
-};

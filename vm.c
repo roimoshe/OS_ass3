@@ -7,7 +7,7 @@
 #include "proc.h"
 #include "elf.h"
 
-static char buffer[];// for IO to Swap file
+static char buffer[PGSIZE];// for IO to Swap file
 
 extern char data[];  // defined by kernel.ld
 
@@ -273,7 +273,7 @@ SwapOutPage(pde_t *pgdir){
   // update pte flags
   pte_t *pte = walkpgdir(pgdir, mm_va, 0);
   uint pa = PTE_ADDR(*pte);
-  memset(pa, 0, PGSIZE);//Todo: pa or va?
+  memset((void *)P2V(pa), 0, PGSIZE);//Todo: pa or va?
 
   *pte |= PTE_PG;
   *pte &= ~PTE_P;
@@ -332,7 +332,8 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         kfree(mem);
         uint pa = SwapOutPage(pgdir);
         if(pa == 0){
-          //to much pages for the proc TODO: exit proc
+          cprintf("error: process %d needs more than 32 page, exits...", myproc()->pid);
+          exit();
         }
         InitFreeMemPage(pa, (char*)a);
       }
@@ -354,35 +355,42 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 int
 ImportFromFilePageToBuffer(void *va){
   int  i = 0;
-  while(myproc()->swap_file_pages[i].v_addr != va){
+  while(myproc()->swap_file_pages[i].v_addr != va || myproc()->swap_file_pages[i].state_used == 0){
     i++;
   }
   if(i>15)
     panic("wow somthing wrong happend in PGFLT");
 
     // free a page to buffer from swap file
-     readFromSwapFile(myproc(), &buffer, i*PGSIZE, PGSIZE); 
+     readFromSwapFile(myproc(), buffer, i*PGSIZE, PGSIZE); 
      myproc()->swap_file_pages[i].state_used = 0;
   return i;
 }
 
-int             
-Handle_PGFLT(pde_t *pgdir, void* va){
-  void * align_va = PGROUNDDOWN((uint)va);
+void             
+Handle_PGFLT(uint va){
+  void * align_va = (void *)PGROUNDDOWN(va);
   uint pa;
-  int sp_index = 0;
   int mm_index = 0;
-  char flag_found = 0;
-    
+  pde_t *pgdir = myproc()->pgdir;
+  pte_t *pte = walkpgdir(pgdir, align_va, 0);
+  void *align_va_kernel_vir = P2V(PTE_ADDR(*pte));
+
+  if(pte == 0){
+    panic("in Handle_PGFLT, no page_table exits");
+  } else if(!(*pte & PTE_PG)){
+    panic("in Handle_PGFLT, got T_PGFLT but page isnt in the swap file"); // TODO: check this case
+  } else if(align_va_kernel_vir == 0){
+    panic("in Handle_PGFLT, page table unexpectedly isnt exist");
+  }
   // free the page to buffer from swap file
-  int i = ImportFromFilePageToBuffer(align_va);
+  ImportFromFilePageToBuffer(align_va);
 
   while(mm_index<16){
     //finidng free page in main memory
     if(!myproc()->main_mem_pages[mm_index].state_used){
       pa = V2P(kalloc());
-      break; 
-      flag_found = 1;
+      break;
     }
     mm_index++;
   }
@@ -391,14 +399,15 @@ Handle_PGFLT(pde_t *pgdir, void* va){
     // page out mm page
     pa = SwapOutPage(myproc()->pgdir);
     if(pa==0){
-      //TODO: exit proc
+      panic("in Handle_PGFLT, unexpectedly no unused page in swap file");
     }
   }
   
-  if(InitFreeMemPage(pa, align_va))
-    return -1;
-  memmove(align_va, buffer, PGSIZE);
-  return 0;
+  if(InitFreeMemPage(pa, align_va)){
+    panic("in Handle_PGFLT, unexpectedly failed to find unused entry in main_mem array of the process");
+
+  }
+  memmove(align_va_kernel_vir, buffer, PGSIZE);
 }
 
 // Deallocate user pages to bring the process size from oldsz to
@@ -426,7 +435,7 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       char *v = P2V(pa);
       kfree(v);
       int i =0;
-      while(myproc()->main_mem_pages[i].v_addr != a){
+      while((uint)myproc()->main_mem_pages[i].v_addr != a){
         i++;
       }
       if(i<16 && myproc()->main_mem_pages[i].page_dir == pgdir){
@@ -498,12 +507,12 @@ copyuvm(pde_t *pgdir, uint sz)
       goto bad;
     }
     // TODO: check if neccesry
-    if(1 == PTE_PG & *pte){
-      *d |= PTE_PG;
-      *d &= ~PTE_P;
-      lcr3(V2P(myproc()->pgdir));
-      continue;
-    }
+    // if(1 == PTE_PG & *pte){
+    //   *d |= PTE_PG;
+    //   *d &= ~PTE_P;
+    //   lcr3(V2P(myproc()->pgdir));
+    //   continue;
+    // }
   }
   return d;
 
