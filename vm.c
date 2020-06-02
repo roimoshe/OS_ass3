@@ -365,6 +365,7 @@ ImportFromFilePageToBuffer(void *va){
     // free a page to buffer from swap file
      readFromSwapFile(myproc(), buffer, i*PGSIZE, PGSIZE); 
      myproc()->swap_file_pages[i].state_used = 0;
+     myproc()->swap_file_pages[i].v_addr = 0;
   return i;
 }
 
