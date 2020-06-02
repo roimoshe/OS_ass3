@@ -79,8 +79,8 @@ trap(struct trapframe *tf)
     break;
   //handling page fault TODO: check if segfault create t_PGFLT
   case T_PGFLT:
-    // Handle_PGFLT(rcr2());TODO
-    // break;
+    Handle_PGFLT(rcr2());
+    break;
   //PAGEBREAK: 13
   default:
     if(myproc() == 0 || (tf->cs&3) == 0){
