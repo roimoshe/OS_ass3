@@ -359,13 +359,13 @@ ImportFromFilePageToBuffer(void *va){
   while((myproc()->swap_file_pages[i].v_addr != va || myproc()->swap_file_pages[i].state_used == 0) && i< 16){
     i++;
   }
-  if(i>15)
+  if(i>15){
     panic("wow somthing wrong happend in PGFLT");
-
-    // free a page to buffer from swap file
-     readFromSwapFile(myproc(), buffer, i*PGSIZE, PGSIZE); 
-     myproc()->swap_file_pages[i].state_used = 0;
-     myproc()->swap_file_pages[i].v_addr = 0;
+  }
+  // free a page to buffer from swap file
+  readFromSwapFile(myproc(), buffer, i*PGSIZE, PGSIZE); 
+  myproc()->swap_file_pages[i].state_used = 0;
+  myproc()->swap_file_pages[i].v_addr = 0;
   return i;
 }
 
