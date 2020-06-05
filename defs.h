@@ -10,6 +10,10 @@ struct sleeplock;
 struct stat;
 struct superblock;
 
+struct run {
+  struct run *next;
+};
+
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
@@ -78,6 +82,7 @@ char*           kalloc(void);
 void            kfree(char*);
 void            kinit1(void*, void*);
 void            kinit2(void*, void*);
+struct run*     get_first_run();
 
 // kbd.c
 void            kbdintr(void);

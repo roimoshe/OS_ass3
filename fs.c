@@ -697,7 +697,7 @@ char* itoa(int i, char b[]){
 int
 removeSwapFile(struct proc* p)
 {
-  cprintf("removeSp pid:%d\n", p->pid); // for debug Todo: delete
+  // cprintf("removeSp pid:%d\n", p->pid); // for debug Todo: delete
   //path of proccess
   char path[DIGITS];
   memmove(path,"/.swap", 6);
@@ -767,7 +767,7 @@ removeSwapFile(struct proc* p)
 int
 createSwapFile(struct proc* p)
 {
-  cprintf("createSp pid:%d\n", p->pid); // for debug Todo: delete
+  // cprintf("createSp pid:%d\n", p->pid); // for debug Todo: delete
   char path[DIGITS];
   memmove(path,"/.swap", 6);
   itoa(p->pid, path+ 6);
@@ -794,7 +794,7 @@ createSwapFile(struct proc* p)
 int
 writeToSwapFile(struct proc * p, char* buffer, uint placeOnFile, uint size)
 {
-  cprintf("writeToSp pid:%d\n", p->pid); // for debug Todo: delete
+  // cprintf("writeToSp pid:%d\n", p->pid); // for debug Todo: delete
 
   p->swapFile->off = placeOnFile;
 
@@ -806,7 +806,7 @@ writeToSwapFile(struct proc * p, char* buffer, uint placeOnFile, uint size)
 int
 readFromSwapFile(struct proc * p, char* buffer, uint placeOnFile, uint size)
 {
-  cprintf("readFromSp pid:%d\n", p->pid); // for debug Todo: delete
+  // cprintf("readFromSp pid:%d\n", p->pid); // for debug Todo: delete
 
   p->swapFile->off = placeOnFile;
 

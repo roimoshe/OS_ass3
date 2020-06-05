@@ -14,7 +14,7 @@ struct {
 } ptable;
 
 static struct proc *initproc;
-
+int num_of_free_pages_after_kernel_load = 0;
 int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
@@ -89,7 +89,8 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
-
+  p->page_fault_counter = 0;
+  p->swaps_out_counter = 0;
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -246,6 +247,16 @@ fork(void)
   return pid;
 }
 
+int get_num_of_free_pages(){
+  int counter = 0;
+  struct run *r = get_first_run();
+  while((*r).next != 0){
+    r = r->next;
+    counter++;
+  }
+  return counter;
+}
+
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait() to find out it exited.
@@ -285,7 +296,7 @@ exit(void)
         wakeup1(initproc);
     }
   }
-
+  cprintf("%d / %d free page frames in the system\n",get_num_of_free_pages(), num_of_free_pages_after_kernel_load); // TODO: maybe move it to wait()
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
   sched();
@@ -361,7 +372,7 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
-  
+  num_of_free_pages_after_kernel_load = get_num_of_free_pages(); //TODO: done per processor, check if matter
   for(;;){
     // Enable interrupts on this processor.
     sti();
@@ -532,6 +543,24 @@ kill(int pid)
   return -1;
 }
 
+int get_number_of_used_pages_in_array(struct page *pages_array, int size){
+  int counter = 0;
+  for (int i = 0; i < size; i++){
+    if(pages_array[i].state_used){
+      counter++;
+    }
+  }
+  return counter;
+}
+
+int get_number_of_allocated_memory_pages(struct proc *p){
+  return get_number_of_used_pages_in_array(p->main_mem_pages, MAX_PSYC_PAGES);
+}
+
+int get_number_of_swaped_out_pages(struct proc *p){
+  return get_number_of_used_pages_in_array(p->swap_file_pages, MAX_PSYC_PAGES);
+}
+
 //PAGEBREAK: 36
 // Print a process listing to console.  For debugging.
 // Runs when user types ^P on console.
@@ -552,14 +581,16 @@ procdump(void)
   char *state;
   uint pc[10];
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+  for(p = ptable.proc+2; p < &ptable.proc[NPROC]; p++){ //TODO: remove "+2" it is for debug
     if(p->state == UNUSED)
       continue;
     if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
       state = states[p->state];
     else
-      state = "???";
-    cprintf("%d %s %s", p->pid, state, p->name);
+      state = "???"; // TODO: prints 0 pages for sh,init...
+    cprintf("%d %s <allocated memory pages %d> <paged out %d> <page faults %d> <total paged out %d> %s\n", p->pid, state, 
+      get_number_of_allocated_memory_pages(p), get_number_of_swaped_out_pages(p), p->page_fault_counter,
+      p->swaps_out_counter, p->name);
     if(p->state == SLEEPING){
       getcallerpcs((uint*)p->context->ebp+2, pc);
       for(i=0; i<10 && pc[i] != 0; i++)

@@ -261,7 +261,7 @@ SwapOutPage(pde_t *pgdir){
   if(mm_index>15)
     panic("swappage: somthing wrong");
 
-  void *mm_va = myproc()->main_mem_pages[mm_index].v_addr;
+  void *mm_va = myproc()->main_mem_pages[mm_index].v_addr; // TODO: here we choose page to swapout
   //uint pa = V2P(mm_va);
 
   writeToSwapFile(myproc(), mm_va, sp_index*PGSIZE, PGSIZE); 
@@ -279,6 +279,7 @@ SwapOutPage(pde_t *pgdir){
   *pte |= PTE_PG;
   *pte &= ~PTE_P;
   lcr3(V2P(myproc()->pgdir));
+  myproc()->swaps_out_counter+=1;
   return pa;
 }
 
@@ -371,6 +372,7 @@ ImportFromFilePageToBuffer(void *va){
 
 void             
 Handle_PGFLT(uint va){
+  cprintf("<PF 0x%x>\n", va);
   void * align_va = (void *)PGROUNDDOWN(va);
   uint pa;
   int mm_index = 0;
@@ -378,6 +380,7 @@ Handle_PGFLT(uint va){
   pte_t *pte = walkpgdir(pgdir, align_va, 0);
   void *align_va_kernel_vir = P2V(PTE_ADDR(*pte));
 
+  myproc()->page_fault_counter+=1;
   if(pte == 0){
     panic("in Handle_PGFLT, no page_table exits");
   } else if(!(*pte & PTE_PG)){
@@ -397,7 +400,7 @@ Handle_PGFLT(uint va){
     mm_index++;
   }
 
-  if(mm_index> 15){
+  if(mm_index > 15){
     // page out mm page
     pa = SwapOutPage(myproc()->pgdir);
     if(pa==0){
@@ -410,6 +413,11 @@ Handle_PGFLT(uint va){
 
   }
   memmove(align_va_kernel_vir, buffer, PGSIZE);
+  if( (pte = walkpgdir(pgdir, align_va, 0)) == 0){
+    panic("page table isnt in physical memery after Handle_PGFLT\n");
+  } else if( (*pte & PTE_P) == 0){
+    panic("user page isnt in physical memery after Handle_PGFLT\n");
+  }
 }
 
 // Deallocate user pages to bring the process size from oldsz to
