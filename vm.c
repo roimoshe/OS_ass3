@@ -616,16 +616,13 @@ UpdatePageCounters(){
   for(int i=0; i<16; i++){
     if(p->main_mem_pages[i].state_used){
       pte = walkpgdir(p->pgdir, p->main_mem_pages[i].v_addr, 0);
-      if(pte==0)
+      if(pte==0){
         panic("panic: UpdatePageCounters");
+      }
+      p->main_mem_pages[i].counter >>= 1;
       if(*pte & PTE_A){
         //shift right with 1 on msb
-        int temp = (int)p->main_mem_pages[i].counter;
-        temp >>= 1;
-        p->main_mem_pages[i].counter = temp;
-      }
-      else{
-        p->main_mem_pages[i].counter >>= 1;
+        p->main_mem_pages[i].counter |= 1<<31;
       }
       *pte = *pte & ~PTE_A;// reset the flag
     }
