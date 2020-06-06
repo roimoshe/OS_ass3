@@ -1816,11 +1816,11 @@ main(int argc, char *argv[])
 {
   printf(1,"-------------Task 1 Test-----------\n");
   // sleep(100);
-  char *a = (char *)sbrk(13*PGSIZE);
+  char *a = (char *)sbrk(4*PGSIZE);
   printf(1,"-------------after sbrk1-----------\n");
   // sleep(100);
   volatile int *pointer;
-  pointer = (int *)(a + 12*PGSIZE);
+  pointer = (int *)(a + 3*PGSIZE);
   printf(1,"---pointer = 0x%x, &pointer = 0x%x, a = 0x%x, &a = 0x%x, main = 0x%x---\n", pointer, &pointer, a, &a, main);
   printf(1, "----accessing memory----\n");// problem ------------>
   *pointer = 12;
@@ -1833,7 +1833,7 @@ main(int argc, char *argv[])
   sbrk(14*PGSIZE);
   printf(1,"-------------after sbrk2-----------\n");
   sleep(2000);
-  pointer = (int *)(a + PGSIZE * 26);
+  pointer = (int *)(a + PGSIZE * 10);
   *pointer = 99;
   func(pointer);
   printf(1, "----%d----\n", *pointer);
