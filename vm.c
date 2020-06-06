@@ -250,6 +250,7 @@ NFU_AGING_Algo(struct proc *p){
     }
     i++;
   }
+  cprintf("page min counter=%d\n",minCounter);
   return mm_index;
 }
 
@@ -432,7 +433,6 @@ Handle_PGFLT(uint va){
   
   if(InitFreeMemPage(pa, align_va)){
     panic("in Handle_PGFLT, unexpectedly failed to find unused entry in main_mem array of the process");
-
   }
   memmove(align_va_kernel_vir, buffer, PGSIZE);
   if( (pte = walkpgdir(pgdir, align_va, 0)) == 0){
