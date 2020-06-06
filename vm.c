@@ -320,7 +320,6 @@ LAP_AGING_Algo(struct proc *p){
 int
 Second_chance_FIFO_Algo(struct proc *p){
   int i=0, currIndex;
-  uint currCounter = p->main_mem_pages[p->queue_head].counter;
   pte_t *pte;
   if(p->main_mem_pages[p->queue_head].state_used == 0){
     panic("NFU_AGING_Algo: found unused page in main_mem_pages arr");
