@@ -124,7 +124,9 @@ found:
   //alloc the proc pages
   for(int i = 0; i < 16; i++){
     p->main_mem_pages[i].state_used=0;
+    p->main_mem_pages[i].counter =0;
     p->swap_file_pages[i].state_used=0;
+    p->swap_file_pages[i].counter =0;
   }
 
   return p;
@@ -336,7 +338,9 @@ wait(void)
           int i =0;
           while(i< 16){
               p->swap_file_pages[i].state_used =0;
+              p->swap_file_pages[i].counter =0;
               p->main_mem_pages[i].state_used =0;
+              p->main_mem_pages[i].counter =0;
               i++;
           }
           // remove swap file

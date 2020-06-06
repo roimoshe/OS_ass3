@@ -42,6 +42,7 @@ struct page {
   char state_used;
   void *v_addr;
   pde_t *page_dir;
+  uint counter;
   //uint spfile_offset;
 };
 

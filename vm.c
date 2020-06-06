@@ -235,6 +235,37 @@ InitPage(pde_t *pgdir, void *va, uint pa, int index){
   return 0;
 }
 
+int
+NFU_AGING_Algo(struct proc *p){
+  uint mm_index = 0;
+  int i=0;
+  int minCounter = p->main_mem_pages[mm_index].counter;
+  i++;
+  while(i<16){
+    //finidng used page in main memory
+    if(p->main_mem_pages[i].counter< minCounter){
+      minCounter = p->main_mem_pages[i].counter;
+      mm_index = i;
+    }
+    i++;
+  }
+  return mm_index;
+}
+
+int
+GetSwapPageIndex(struct proc *p){
+  int mm_index = 0;
+    while(mm_index<16){
+    //finidng used page in main memory
+    if(p->main_mem_pages[mm_index].state_used){
+      break;
+    }
+    mm_index++;
+  }
+
+  return NFU_AGING_Algo(p);
+}
+
 uint
 SwapOutPage(pde_t *pgdir){
   int sp_index = 0;
@@ -251,14 +282,9 @@ SwapOutPage(pde_t *pgdir){
     //proc has a max MAX_TOTAL_PAGES pages
     return 0;
   }
-  while(mm_index<16){
-    //finidng used page in main memory
-    if(myproc()->main_mem_pages[mm_index].state_used){
-      break;
-    }
-    mm_index++;
-  }
-  if(mm_index>15)
+  //finidng used page in main memory by algo
+  mm_index = GetSwapPageIndex(myproc());
+  if(mm_index <0 || mm_index>15)
     panic("swappage: somthing wrong");
 
   void *mm_va = myproc()->main_mem_pages[mm_index].v_addr; // TODO: here we choose page to swapout
@@ -581,3 +607,14 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
 //PAGEBREAK!
 // Blank page.
 
+
+ void
+ updatePageCounters(){
+  struct proc *p = myproc();
+  pte_t *pte;
+  uint va;
+  for(int i=0; i<16; i++){
+    pte = walkpgdir(p->pgdir, p->main_mem_pages[i].v_addr, 0);
+    
+  }
+ }

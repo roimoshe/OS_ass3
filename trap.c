@@ -53,6 +53,7 @@ trap(struct trapframe *tf)
       ticks++;
       wakeup(&ticks);
       release(&tickslock);
+
     }
     lapiceoi();
     break;
@@ -79,6 +80,8 @@ trap(struct trapframe *tf)
     break;
   //handling page fault TODO: check if segfault create t_PGFLT
   case T_PGFLT:
+    //seitch case by the page replacment algo
+    updatePageCounters();
     Handle_PGFLT(rcr2());
     break;
   //PAGEBREAK: 13
