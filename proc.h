@@ -67,6 +67,7 @@ struct proc {
   struct page swap_file_pages[MAX_PSYC_PAGES]; //page in swap file
   int page_fault_counter;
   int swaps_out_counter;
+  int queue_head;
 };
 
 // Process memory is laid out contiguously, low addresses first:

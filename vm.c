@@ -318,13 +318,42 @@ LAP_AGING_Algo(struct proc *p){
 }
 
 int
+Second_chance_FIFO_Algo(struct proc *p){
+  int i=0, currIndex;
+  uint currCounter = p->main_mem_pages[p->queue_head].counter;
+  pte_t *pte;
+  if(p->main_mem_pages[p->queue_head].state_used == 0){
+    panic("NFU_AGING_Algo: found unused page in main_mem_pages arr");
+  }
+
+  i++;
+  while(i<16){
+    if(p->main_mem_pages[i].state_used == 0)
+      panic("NFU_AGING_Algo: found unused page in main_mem_pages arr");
+    //finidng used page in main memory
+    currIndex = (p->queue_head +i) % MAX_PSYC_PAGES;
+    pte = walkpgdir(p->pgdir, p->main_mem_pages[currIndex].v_addr, 0);
+    if(*pte & PTE_A){
+      p->queue_head = (p->queue_head + 1) % MAX_PSYC_PAGES;
+      return currIndex;
+    }
+    i++;
+  }
+  currIndex = p->queue_head;
+  cprintf("page index=%d\n", currIndex);
+  p->queue_head = (p->queue_head + 1) % MAX_PSYC_PAGES;
+  return currIndex;
+}
+
+
+int
 GetSwapPageIndex(struct proc *p){
 #if SELECTION==NFUA
   return NFU_AGING_Algo(p);
 #elif SELECTION==LAPA
   return LAP_AGING_Algo(p);
 #elif SELECTION==SCFIFO
-  return NFU_AGING_Algo(p);// TODO: replace
+  return Second_chance_FIFO_Algo(p);
 #elif SELECTION==AQ
   return NFU_AGING_Algo(p);// TODO: replace
 #elif SELECTION==NONE

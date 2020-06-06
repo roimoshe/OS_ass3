@@ -91,6 +91,7 @@ found:
   p->pid = nextpid++;
   p->page_fault_counter = 0;
   p->swaps_out_counter = 0;
+  p->queue_head = 0;
   release(&ptable.lock);
 
   // Allocate kernel stack.
