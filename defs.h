@@ -10,6 +10,12 @@ struct sleeplock;
 struct stat;
 struct superblock;
 
+#define NFUA 0
+#define LAPA 1
+#define SCFIFO 2
+#define AQ 3
+#define NONE 4
+
 struct run {
   struct run *next;
 };
