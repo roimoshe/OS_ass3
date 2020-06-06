@@ -129,7 +129,8 @@ found:
     p->swap_file_pages[i].state_used=0;
     p->swap_file_pages[i].counter =0;
   }
-  p->queue_head = p->main_mem_pages[0];
+  p->queue_head = &p->main_mem_pages[0];
+  p->queue_last = &p->main_mem_pages[0];
   return p;
 }
 

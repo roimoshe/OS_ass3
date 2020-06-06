@@ -238,13 +238,13 @@ InitPage(pde_t *pgdir, void *va, uint pa, int index){
       kfree(v);
       return 1;
     }
-    myproc()->main_mem_pages[index].state_used = 1;
-    myproc()->main_mem_pages[index].v_addr = va;
-    myproc()->main_mem_pages[index].page_dir = pgdir;
-    ResetPageCounter( myproc(), index);
-    myproc()->queue_last->nextPage= myproc()->main_mem_pages[index];
-    myproc()->queue_last = myproc()->queue_last->nextPage
-    //Todo: need to update lcr3?
+  myproc()->main_mem_pages[index].state_used = 1;
+  myproc()->main_mem_pages[index].v_addr = va;
+  myproc()->main_mem_pages[index].page_dir = pgdir;
+  ResetPageCounter( myproc(), index);
+  myproc()->queue_last->nextPage = &myproc()->main_mem_pages[index];
+  myproc()->queue_last = myproc()->queue_last->nextPage;
+  //Todo: need to update lcr3?
   return 0;
 }
 
