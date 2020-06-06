@@ -81,7 +81,7 @@ trap(struct trapframe *tf)
   //handling page fault TODO: check if segfault create t_PGFLT
   case T_PGFLT:
     //seitch case by the page replacment algo
-    updatePageCounters();
+    UpdatePageCounters();
     Handle_PGFLT(rcr2());
     break;
   //PAGEBREAK: 13

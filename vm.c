@@ -608,13 +608,13 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
 // Blank page.
 
 
- void
- updatePageCounters(){
+void
+UpdatePageCounters(){
   struct proc *p = myproc();
   pte_t *pte;
-  uint va;
   for(int i=0; i<16; i++){
     pte = walkpgdir(p->pgdir, p->main_mem_pages[i].v_addr, 0);
-    
+    if(pte==0)
+      panic("panic");
   }
  }
