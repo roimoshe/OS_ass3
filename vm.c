@@ -238,7 +238,7 @@ InitPage(pde_t *pgdir, void *va, uint pa, int index){
 
 int
 NFU_AGING_Algo(struct proc *p){
-  uint mm_index = 0;
+  int mm_index = 0;
   int i=0;
   uint minCounter = p->main_mem_pages[mm_index].counter;
   uint maxCounter = p->main_mem_pages[mm_index].counter;//for debug only Todo: delete
@@ -247,6 +247,8 @@ NFU_AGING_Algo(struct proc *p){
   }
   i++;
   while(i<16){
+    if(p->main_mem_pages[i].state_used == 0)
+      panic("NFU_AGING_Algo: found unused page in main_mem_pages arr");
     //finidng used page in main memory
     if(p->main_mem_pages[i].counter< minCounter){
       minCounter = p->main_mem_pages[i].counter;
@@ -257,8 +259,8 @@ NFU_AGING_Algo(struct proc *p){
     }
     i++;
   }
-  cprintf("page min counter=%d\n",minCounter);
-  cprintf("page max counter=%d\n",maxCounter);
+  cprintf("page min counter index=%d\n", mm_index);
+  //cprintf("page max counter=%d\n",maxCounter);
   return mm_index;
 }
 
@@ -267,6 +269,7 @@ GetSwapPageIndex(struct proc *p){
   //switch case for the page replacment algo according to init:
 
   return NFU_AGING_Algo(p);
+  //return 15;
 }
 
 uint
@@ -398,6 +401,7 @@ ImportFromFilePageToBuffer(void *va){
   readFromSwapFile(myproc(), buffer, i*PGSIZE, PGSIZE); 
   myproc()->swap_file_pages[i].state_used = 0;
   myproc()->swap_file_pages[i].v_addr = 0;
+  myproc()->swap_file_pages[i].counter = 0;
   return i;
 }
 
@@ -442,12 +446,14 @@ Handle_PGFLT(uint va){
   if(InitFreeMemPage(pa, align_va)){
     panic("in Handle_PGFLT, unexpectedly failed to find unused entry in main_mem array of the process");
   }
+  cprintf("before memove in handle page fault\n");
   memmove(align_va_kernel_vir, buffer, PGSIZE);
   if( (pte = walkpgdir(pgdir, align_va, 0)) == 0){
     panic("page table isnt in physical memery after Handle_PGFLT\n");
   } else if( (*pte & PTE_P) == 0){
     panic("user page isnt in physical memery after Handle_PGFLT\n");
   }
+  cprintf("finish handle page fault\n");
 }
 
 // Deallocate user pages to bring the process size from oldsz to
