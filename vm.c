@@ -264,9 +264,18 @@ NFU_AGING_Algo(struct proc *p){
 
 int
 GetSwapPageIndex(struct proc *p){
-  //switch case for the page replacment algo according to init:
-
+#if SELECTION==NFUA
   return NFU_AGING_Algo(p);
+#elif SELECTION==LAPA
+  return NFU_AGING_Algo(p);// TODO: replace
+#elif SELECTION==SCFIFO
+  return NFU_AGING_Algo(p);// TODO: replace
+#elif SELECTION==AQ
+  return NFU_AGING_Algo(p);// TODO: replace
+#elif SELECTION==NONE
+  return NFU_AGING_Algo(p);// TODO: replace
+#endif
+panic("GetSwapPageIndex: no selection choosen\n");
 }
 
 uint

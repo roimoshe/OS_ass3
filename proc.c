@@ -298,7 +298,9 @@ exit(void)
         wakeup1(initproc);
     }
   }
+  #if VERBOSE_PRINT
   cprintf("%d / %d free page frames in the system\n",get_num_of_free_pages(), num_of_free_pages_after_kernel_load); // TODO: maybe move it to wait()
+  #endif
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
   sched();
