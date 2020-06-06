@@ -241,6 +241,7 @@ NFU_AGING_Algo(struct proc *p){
   uint mm_index = 0;
   int i=0;
   int minCounter = p->main_mem_pages[mm_index].counter;
+  int maxCounter = p->main_mem_pages[mm_index].counter;//for debug only Todo: delete
   i++;
   while(i<16){
     //finidng used page in main memory
@@ -248,9 +249,13 @@ NFU_AGING_Algo(struct proc *p){
       minCounter = p->main_mem_pages[i].counter;
       mm_index = i;
     }
+    if(p->main_mem_pages[i].counter> maxCounter){
+      maxCounter = p->main_mem_pages[i].counter;
+    }
     i++;
   }
   cprintf("page min counter=%d\n",minCounter);
+  cprintf("page max counter=%d\n",maxCounter);
   return mm_index;
 }
 
