@@ -43,6 +43,8 @@ struct page {
   void *v_addr;
   pde_t *page_dir;
   uint counter;
+  struct page *nextPage;
+  int index;
   //uint spfile_offset;
 };
 
@@ -67,7 +69,9 @@ struct proc {
   struct page swap_file_pages[MAX_PSYC_PAGES]; //page in swap file
   int page_fault_counter;
   int swaps_out_counter;
-  int queue_head;
+  struct page *queue_head;
+  struct page *queue_last;
+  int queue_size;
 };
 
 // Process memory is laid out contiguously, low addresses first:

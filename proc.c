@@ -91,7 +91,6 @@ found:
   p->pid = nextpid++;
   p->page_fault_counter = 0;
   p->swaps_out_counter = 0;
-  p->queue_head = 0;
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -126,10 +125,11 @@ found:
   for(int i = 0; i < 16; i++){
     p->main_mem_pages[i].state_used=0;
     ResetPageCounter(p, i);
+    p->main_mem_pages[i].index = i;
     p->swap_file_pages[i].state_used=0;
     p->swap_file_pages[i].counter =0;
   }
-
+  p->queue_head = p->main_mem_pages[0];
   return p;
 }
 

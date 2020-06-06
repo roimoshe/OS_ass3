@@ -13,6 +13,7 @@ extern char data[];  // defined by kernel.ld
 
 pde_t *kpgdir;  // for use in scheduler()
 
+#define null 0;
 // Set up CPU's kernel segment descriptors.
 // Run once on entry on each CPU.
 void
@@ -241,6 +242,8 @@ InitPage(pde_t *pgdir, void *va, uint pa, int index){
     myproc()->main_mem_pages[index].v_addr = va;
     myproc()->main_mem_pages[index].page_dir = pgdir;
     ResetPageCounter( myproc(), index);
+    myproc()->queue_last->nextPage= myproc()->main_mem_pages[index];
+    myproc()->queue_last = myproc()->queue_last->nextPage
     //Todo: need to update lcr3?
   return 0;
 }
@@ -319,29 +322,35 @@ LAP_AGING_Algo(struct proc *p){
 
 int
 Second_chance_FIFO_Algo(struct proc *p){
-  int i=0, currIndex;
   pte_t *pte;
-  if(p->main_mem_pages[p->queue_head].state_used == 0){
+  struct page *prev_page = p->queue_head ;
+  if(prev_page->state_used == 0){
     panic("NFU_AGING_Algo: found unused page in main_mem_pages arr");
   }
 
-  i++;
-  while(i<16){
-    if(p->main_mem_pages[i].state_used == 0)
+  while(prev_page->nextPage!=p->queue_last){
+    if(prev_page->state_used == 0)
       panic("NFU_AGING_Algo: found unused page in main_mem_pages arr");
+
+    struct page *curr_page = prev_page->nextPage;
+
     //finidng used page in main memory
-    currIndex = (p->queue_head +i) % MAX_PSYC_PAGES;
-    pte = walkpgdir(p->pgdir, p->main_mem_pages[currIndex].v_addr, 0);
+    pte = walkpgdir(p->pgdir, curr_page->v_addr, 0);
     if(*pte & PTE_A){
-      p->queue_head = (p->queue_head + 1) % MAX_PSYC_PAGES;
-      return currIndex;
+      // last page
+      if(curr_page == p->queue_last){
+        p->queue_last = prev_page;
+      }
+      p->queue_last->nextPage = p->queue_head;
+      p->queue_last = prev_page;
+      p->queue_head = curr_page->nextPage;
+      return curr_page->index;
     }
-    i++;
   }
-  currIndex = p->queue_head;
-  cprintf("page index=%d\n", currIndex);
-  p->queue_head = (p->queue_head + 1) % MAX_PSYC_PAGES;
-  return currIndex;
+  prev_page = p->queue_head;
+  p->queue_head= p->queue_head->nextPage;
+  cprintf("page index=%d\n", prev_page->index);
+  return prev_page->index;
 }
 
 
