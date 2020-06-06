@@ -219,6 +219,15 @@ loaduvm(pde_t *pgdir, char *addr, struct inode *ip, uint offset, uint sz)
   return 0;
 }
 
+void
+ResetPageCounter(struct proc *p, int index){
+#if SELECTION==NFUA
+  p->main_mem_pages[index].counter = 0;
+#elif SELECTION==LAPA
+  p->main_mem_pages[index].counter = 0xFFFFFFFF;
+#endif
+}
+
 int
 InitPage(pde_t *pgdir, void *va, uint pa, int index){
   if(mappages(pgdir, va, PGSIZE, pa, PTE_W|PTE_U) < 0){
@@ -231,7 +240,7 @@ InitPage(pde_t *pgdir, void *va, uint pa, int index){
     myproc()->main_mem_pages[index].state_used = 1;
     myproc()->main_mem_pages[index].v_addr = va;
     myproc()->main_mem_pages[index].page_dir = pgdir;
-    myproc()->main_mem_pages[index].counter = 0;
+    ResetPageCounter( myproc(), index);
     //Todo: need to update lcr3?
   return 0;
 }
@@ -262,6 +271,54 @@ NFU_AGING_Algo(struct proc *p){
   cprintf("page min counter index=%d\n", mm_index);
   //cprintf("page max counter=%d\n",maxCounter);
   return mm_index;
+  //return 15;
+}
+
+int
+GetSetBits(int num){
+	int count=0;
+
+	while(num!=0){
+		if(((uint)num & 1) == 1){ //if current bit 1
+			count++;//increase count
+		}
+		num = num>>1;//right shift
+	}
+  return count;
+}
+
+int
+LAP_AGING_Algo(struct proc *p){
+  int mm_index = 0;
+  int i=0, num_of_1;
+  uint minCounter_1 = p->main_mem_pages[mm_index].counter;
+  num_of_1 = GetSetBits(p->main_mem_pages[mm_index].counter);
+  if(p->main_mem_pages[mm_index].state_used == 0){
+    panic("LAP_AGING_Algo: found unused page in main_mem_pages arr");
+  }
+  i++;
+  while(i<16){
+    if(p->main_mem_pages[i].state_used == 0)
+      panic("LAP_AGING_Algo: found unused page in main_mem_pages arr");
+    //finidng used page in main memory
+    int curr_num_of_1 = GetSetBits(p->main_mem_pages[i].counter);
+    if(curr_num_of_1 < num_of_1){
+      minCounter_1 = p->main_mem_pages[i].counter;
+      mm_index = i;
+      num_of_1 = curr_num_of_1;
+    }
+    else if(curr_num_of_1 == num_of_1){
+      if(p->main_mem_pages[i].counter < minCounter_1){
+        minCounter_1 = p->main_mem_pages[i].counter;
+        mm_index = i;
+      }
+    }
+    i++;
+  }
+  cprintf("page min counter index=%d\n", mm_index);
+  //cprintf("page max counter=%d\n",maxCounter);
+  return mm_index;
+  //return 15;
 }
 
 int
@@ -311,7 +368,7 @@ SwapOutPage(pde_t *pgdir){
   myproc()->swap_file_pages[sp_index].counter = 0; 
 
   myproc()->main_mem_pages[mm_index].state_used = 0;
-  myproc()->main_mem_pages[mm_index].counter = 0;
+  ResetPageCounter(myproc(), mm_index);
 
   // update pte flags
   pte_t *pte = walkpgdir(pgdir, mm_va, 0);
@@ -496,6 +553,7 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         if(i<16 && myproc()->main_mem_pages[i].page_dir == pgdir){
           myproc()->main_mem_pages[i].state_used = 0;
           myproc()->main_mem_pages[i].page_dir = 0;
+          ResetPageCounter(myproc(), i);
         }
         *pte = 0;
       }
