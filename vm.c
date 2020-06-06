@@ -231,6 +231,7 @@ InitPage(pde_t *pgdir, void *va, uint pa, int index){
     myproc()->main_mem_pages[index].state_used = 1;
     myproc()->main_mem_pages[index].v_addr = va;
     myproc()->main_mem_pages[index].page_dir = pgdir;
+    myproc()->main_mem_pages[index].counter = 0;
     //Todo: need to update lcr3?
   return 0;
 }
@@ -254,14 +255,7 @@ NFU_AGING_Algo(struct proc *p){
 
 int
 GetSwapPageIndex(struct proc *p){
-  int mm_index = 0;
-    while(mm_index<16){
-    //finidng used page in main memory
-    if(p->main_mem_pages[mm_index].state_used){
-      break;
-    }
-    mm_index++;
-  }
+  //switch case for the page replacment algo according to init:
 
   return NFU_AGING_Algo(p);
 }
@@ -294,8 +288,10 @@ SwapOutPage(pde_t *pgdir){
   myproc()->swap_file_pages[sp_index].state_used =1;
   myproc()->swap_file_pages[sp_index].page_dir = myproc()->main_mem_pages[mm_index].page_dir;
   myproc()->swap_file_pages[sp_index].v_addr = mm_va;
-   
+  myproc()->swap_file_pages[sp_index].counter = 0; 
+
   myproc()->main_mem_pages[mm_index].state_used = 0;
+  myproc()->main_mem_pages[mm_index].counter = 0;
 
   // update pte flags
   pte_t *pte = walkpgdir(pgdir, mm_va, 0);
@@ -614,7 +610,14 @@ UpdatePageCounters(){
   pte_t *pte;
   for(int i=0; i<16; i++){
     pte = walkpgdir(p->pgdir, p->main_mem_pages[i].v_addr, 0);
-    if(pte==0)
-      panic("panic");
+    if(*pte & PTE_A){
+      //shift right with 1 on msb
+      int temp = (int)p->main_mem_pages[i].counter;
+      temp >>= 1;
+      p->main_mem_pages[i].counter = temp;
+    }
+    else{
+      p->main_mem_pages[i].counter >>= 1;
+    }
   }
- }
+}

@@ -3,6 +3,7 @@
 
 // page flag
 #define  PTE_PG 0x200 
+#define  PTE_A 0x020 // Accessed
 
 // Eflags register
 #define FL_IF           0x00000200      // Interrupt Enable

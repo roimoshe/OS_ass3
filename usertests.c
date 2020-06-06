@@ -1837,4 +1837,5 @@ main(int argc, char *argv[])
   *pointer = 99;
   func(pointer);
   printf(1, "----%d----\n", *pointer);
+  exit();
 }
