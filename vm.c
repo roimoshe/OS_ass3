@@ -240,15 +240,7 @@ InitPage(pde_t *pgdir, void *va, uint pa, int index){
     myproc()->main_mem_pages[index].state_used = 1;
     myproc()->main_mem_pages[index].v_addr = va;
     myproc()->main_mem_pages[index].page_dir = pgdir;
-<<<<<<< HEAD
     ResetPageCounter( myproc(), index);
-=======
-#if SELECTION==NFUA
-    myproc()->main_mem_pages[index].counter = 0;
-#elif SELECTION==LAPA
-  myproc()->main_mem_pages[index].counter = 0xFFFFFFFF;
-#endif
->>>>>>> 44bec79e1aa4ca0448b35eb99b6ae33bc9a78fc9
     //Todo: need to update lcr3?
   return 0;
 }
@@ -282,25 +274,21 @@ NFU_AGING_Algo(struct proc *p){
   //return 15;
 }
 
-int
-GetSetBits(int num){
-	int count=0;
-
-	while(num!=0){
-		if(((uint)num & 1) == 1){ //if current bit 1
-			count++;//increase count
-		}
-		num = num>>1;//right shift
-	}
-  return count;
+uint GetSetBits(uint num){
+ int counter = 0;
+ for(uint i = 0; i<31; i++){
+   counter += (num>>i) & 0x1;
+ }
+ return counter;
 }
+
 
 int
 LAP_AGING_Algo(struct proc *p){
   int mm_index = 0;
-  int i=0, num_of_1;
+  int i=0;
   uint minCounter_1 = p->main_mem_pages[mm_index].counter;
-  num_of_1 = GetSetBits(p->main_mem_pages[mm_index].counter);
+  uint num_of_1 = GetSetBits(p->main_mem_pages[mm_index].counter);
   if(p->main_mem_pages[mm_index].state_used == 0){
     panic("LAP_AGING_Algo: found unused page in main_mem_pages arr");
   }
@@ -329,42 +317,12 @@ LAP_AGING_Algo(struct proc *p){
   //return 15;
 }
 
-uint get_num_of_set_bits_in_uint(uint num){
- int counter = 0;
- for(uint i = 0; i<31; i++){
-   counter += (num>>i) & 0x1;
- }
- return counter;
-}
-
-int
-LAPA_Algo(struct proc *p){
-  uint mm_index = 0;
-  int i=0;
-  uint minCounter = get_num_of_set_bits_in_uint(p->main_mem_pages[mm_index].counter);
-  if(p->main_mem_pages[mm_index].state_used == 0){
-    panic("NFU_AGING_Algo: found unused page in main_mem_pages arr");
-  }
-  for(i = 1; i<16; i++){
-    uint curr_num_of_set_bits = get_num_of_set_bits_in_uint(p->main_mem_pages[i].counter);
-    if(curr_num_of_set_bits < minCounter){
-      minCounter = curr_num_of_set_bits;
-      mm_index = i;
-    } else if(curr_num_of_set_bits == minCounter){
-      if( p->main_mem_pages[mm_index].counter > p->main_mem_pages[i].counter){
-        mm_index = i;
-      }
-    }
-  }
-  return mm_index;
-}
-
 int
 GetSwapPageIndex(struct proc *p){
 #if SELECTION==NFUA
   return NFU_AGING_Algo(p);
 #elif SELECTION==LAPA
-  return LAPA_Algo(p);
+  return LAP_AGING_Algo(p);
 #elif SELECTION==SCFIFO
   return NFU_AGING_Algo(p);// TODO: replace
 #elif SELECTION==AQ
@@ -405,18 +363,7 @@ SwapOutPage(pde_t *pgdir){
   myproc()->swap_file_pages[sp_index].v_addr = mm_va;
 
   myproc()->main_mem_pages[mm_index].state_used = 0;
-<<<<<<< HEAD
   ResetPageCounter(myproc(), mm_index);
-=======
-
-#if SELECTION==NFUA
-  myproc()->swap_file_pages[sp_index].counter = 0; 
-  myproc()->main_mem_pages[mm_index].counter = 0;
-#elif SELECTION==LAPA
-  myproc()->swap_file_pages[sp_index].counter = 0xFFFFFFFF; 
-  myproc()->main_mem_pages[mm_index].counter = 0xFFFFFFFF;
-#endif
->>>>>>> 44bec79e1aa4ca0448b35eb99b6ae33bc9a78fc9
 
   // update pte flags
   pte_t *pte = walkpgdir(pgdir, mm_va, 0);
