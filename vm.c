@@ -240,8 +240,8 @@ int
 NFU_AGING_Algo(struct proc *p){
   uint mm_index = 0;
   int i=0;
-  int minCounter = p->main_mem_pages[mm_index].counter;
-  int maxCounter = p->main_mem_pages[mm_index].counter;//for debug only Todo: delete
+  uint minCounter = p->main_mem_pages[mm_index].counter;
+  uint maxCounter = p->main_mem_pages[mm_index].counter;//for debug only Todo: delete
   if(p->main_mem_pages[mm_index].state_used == 0){
     panic("NFU_AGING_Algo: found unused page in main_mem_pages arr");
   }
