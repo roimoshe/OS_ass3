@@ -321,6 +321,28 @@ LAP_AGING_Algo(struct proc *p){
 }
 
 int
+RemovePageFromQueue(struct proc *p, struct page *curr_page, struct page *prev_page){
+  if(prev_page->nextPage != curr_page){
+      //need to find prev
+      prev_page = p-> queue_head;
+      while(prev_page->nextPage!=curr_page){
+        prev_page = prev_page->nextPage;
+        if(prev_page == p->queue_last){
+          panic("somthing wring in second chance ");
+        }
+      }
+    }
+    // last page
+    if(curr_page == p->queue_last){
+      p->queue_last = prev_page;
+    }
+    p->queue_last->nextPage = p->queue_head;
+    p->queue_last = prev_page;
+    p->queue_head = curr_page->nextPage;
+    return curr_page->index;
+}
+
+int
 Second_chance_FIFO_Algo(struct proc *p){
   pte_t *pte;
   struct page *prev_page = p->queue_head ;
@@ -338,13 +360,7 @@ Second_chance_FIFO_Algo(struct proc *p){
     pte = walkpgdir(p->pgdir, curr_page->v_addr, 0);
     if(*pte & PTE_A){
       // last page
-      if(curr_page == p->queue_last){
-        p->queue_last = prev_page;
-      }
-      p->queue_last->nextPage = p->queue_head;
-      p->queue_last = prev_page;
-      p->queue_head = curr_page->nextPage;
-      return curr_page->index;
+      return RemovePageFromQueue(p, curr_page, prev_page);
     }
   }
   prev_page = p->queue_head;
@@ -589,6 +605,8 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         if(i<16 && myproc()->main_mem_pages[i].page_dir == pgdir){
           myproc()->main_mem_pages[i].state_used = 0;
           myproc()->main_mem_pages[i].page_dir = 0;
+          struct page *curr_page = &myproc()->main_mem_pages[i];
+          RemovePageFromQueue(myproc(), curr_page, 0);
           ResetPageCounter(myproc(), i);
         }
       }
