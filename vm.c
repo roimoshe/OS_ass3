@@ -230,12 +230,13 @@ ResetPageCounter(struct proc *p, int index){
 
 int
 InitPage(pde_t *pgdir, void *va, uint pa, int index){
+  cprintf(">>>>>>>>InitPage bind viraddr 0x%x------\n", va);
   if(mappages(pgdir, va, PGSIZE, pa, PTE_W|PTE_U) < 0){
       cprintf("allocuvm out of memory (2)\n");
       deallocuvm(pgdir, PGSIZE, PGSIZE);
       char *v = P2V(pa);
       kfree(v);
-      return 1;
+      return -1;
     }
     myproc()->main_mem_pages[index].state_used = 1;
     myproc()->main_mem_pages[index].v_addr = va;
@@ -268,7 +269,7 @@ NFU_AGING_Algo(struct proc *p){
     }
     i++;
   }
-  cprintf("page min counter index=%d\n", mm_index);
+  // cprintf("page min counter index=%d\n", mm_index);
   //cprintf("page max counter=%d\n",maxCounter);
   return mm_index;
   //return 15;
@@ -311,7 +312,7 @@ LAP_AGING_Algo(struct proc *p){
     }
     i++;
   }
-  cprintf("page min counter index=%d\n", mm_index);
+  // cprintf("page min counter index=%d\n", mm_index);
   //cprintf("page max counter=%d\n",maxCounter);
   return mm_index;
   //return 15;
@@ -361,7 +362,7 @@ GetSwapPageIndex(struct proc *p){
 panic("GetSwapPageIndex: no selection choosen\n");
 }
 
-uint
+void
 SwapOutPage(pde_t *pgdir){
   int sp_index = 0;
   int mm_index = 0;
@@ -375,7 +376,7 @@ SwapOutPage(pde_t *pgdir){
   }
   if(sp_index > 15){
     //proc has a max MAX_TOTAL_PAGES pages
-    return 0;
+    panic("in SwapOutPage: there is an unused page\n");
   }
   //finidng used page in main memory by algo
   mm_index = GetSwapPageIndex(myproc());
@@ -389,20 +390,19 @@ SwapOutPage(pde_t *pgdir){
   myproc()->swap_file_pages[sp_index].state_used =1;
   myproc()->swap_file_pages[sp_index].page_dir = myproc()->main_mem_pages[mm_index].page_dir;
   myproc()->swap_file_pages[sp_index].v_addr = mm_va;
-
+cprintf("swaped out viraddr = 0x%x\n", mm_va);
   myproc()->main_mem_pages[mm_index].state_used = 0;
   ResetPageCounter(myproc(), mm_index);
 
   // update pte flags
   pte_t *pte = walkpgdir(pgdir, mm_va, 0);
   uint pa = PTE_ADDR(*pte);
-  memset((void *)P2V(pa), 0, PGSIZE);//Todo: pa or va?
+  kfree(P2V(pa));
 
   *pte |= PTE_PG;
   *pte &= ~PTE_P;
   lcr3(V2P(myproc()->pgdir));
   myproc()->swaps_out_counter+=1;
-  return pa;
 }
 
 int    
@@ -446,15 +446,17 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       while(i<16){
         //finidng free page in main memory
         if(!myproc()->main_mem_pages[i].state_used){
-          InitPage(pgdir, (char*)a, V2P(mem), i);
+          if( InitPage(pgdir, (char*)a, V2P(mem), i) < 0){
+            panic("failed to InitPage in allocuvm\n");
+          }
           break;
         }
         i++;
       }
       //couldnt find a free page in main memory
       if(i>15){
-        kfree(mem);
-        uint pa = SwapOutPage(pgdir);
+        SwapOutPage(pgdir);
+        uint pa = V2P(mem);
         if(pa == 0){
           cprintf("error: process %d needs more than 32 page, exits...", myproc()->pid);
           exit();
@@ -525,22 +527,23 @@ Handle_PGFLT(uint va){
 
   if(mm_index > 15){
     // page out mm page
-    pa = SwapOutPage(myproc()->pgdir);
+    SwapOutPage(myproc()->pgdir);
+    pa = V2P(kalloc());
     if(pa==0){
       panic("in Handle_PGFLT, unexpectedly no unused page in swap file");
     }
   }
   
-  if(InitFreeMemPage(pa, align_va)){
+  if(InitFreeMemPage(pa, align_va) < 0){
     panic("in Handle_PGFLT, unexpectedly failed to find unused entry in main_mem array of the process");
   }
-  cprintf("before memove in handle page fault\n");
   memmove(align_va_kernel_vir, buffer, PGSIZE);
   if( (pte = walkpgdir(pgdir, align_va, 0)) == 0){
     panic("page table isnt in physical memery after Handle_PGFLT\n");
   } else if( (*pte & PTE_P) == 0){
     panic("user page isnt in physical memery after Handle_PGFLT\n");
   }
+  *pte &= ~PTE_PG;
   cprintf("finish handle page fault\n");
 }
 
@@ -568,6 +571,7 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         panic("kfree");
       char *v = P2V(pa);
       kfree(v);
+      *pte = 0;
       if(myproc()->pid>2){
         int i =0;
         while(((uint)myproc()->main_mem_pages[i].v_addr != a) && i<16){
@@ -578,7 +582,6 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
           myproc()->main_mem_pages[i].page_dir = 0;
           ResetPageCounter(myproc(), i);
         }
-        *pte = 0;
       }
     }
   }

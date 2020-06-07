@@ -1814,12 +1814,16 @@ volatile int func(volatile int *tmp){
 int
 main(int argc, char *argv[])
 {
+  int i = 9;
+  printf(1, "----i=%d----\n", i);
+  int j = 10;
+  printf(1, "----j=%d----\n", j);
   printf(1,"-------------Task 1 Test-----------\n");
   // sleep(100);
   char *a = (char *)sbrk(4*PGSIZE);
   printf(1,"-------------after sbrk1-----------\n");
   // sleep(100);
-  volatile int *pointer;
+  int *pointer;
   pointer = (int *)(a + 3*PGSIZE);
   printf(1,"---pointer = 0x%x, &pointer = 0x%x, a = 0x%x, &a = 0x%x, main = 0x%x---\n", pointer, &pointer, a, &a, main);
   printf(1, "----accessing memory----\n");// problem ------------>
