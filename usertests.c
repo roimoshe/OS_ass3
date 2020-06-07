@@ -472,7 +472,7 @@ sharedfd(void)
   unlink("sharedfd");
   fd = open("sharedfd", O_CREATE|O_RDWR);
   if(fd < 0){
-    printf(1, "fstests: cannot open sharedfd for writing");
+    printf(1, "fstests: cannot open sharedfd for writing\n");
     return;
   }
   pid = fork();

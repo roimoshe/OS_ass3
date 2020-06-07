@@ -230,7 +230,7 @@ ResetPageCounter(struct proc *p, int index){
 
 int
 InitPage(pde_t *pgdir, void *va, uint pa, int index){
-  cprintf(">>>>>>>>InitPage bind viraddr 0x%x------\n", va);
+  cprintf(">>>>>>>>InitPage bind viraddr 0x%x , to physical addr 0x%x------\n", va, pa);
   if(mappages(pgdir, va, PGSIZE, pa, PTE_W|PTE_U) < 0){
       cprintf("allocuvm out of memory (2)\n");
       deallocuvm(pgdir, PGSIZE, PGSIZE);
@@ -503,15 +503,12 @@ Handle_PGFLT(uint va){
   int mm_index = 0;
   pde_t *pgdir = myproc()->pgdir;
   pte_t *pte = walkpgdir(pgdir, align_va, 0);
-  void *align_va_kernel_vir = P2V(PTE_ADDR(*pte));
 
   myproc()->page_fault_counter+=1;
   if(pte == 0){
     panic("in Handle_PGFLT, no page_table exits");
   } else if(!(*pte & PTE_PG)){
     panic("in Handle_PGFLT, got T_PGFLT but page isnt in the swap file"); // TODO: check this case
-  } else if(align_va_kernel_vir == 0){
-    panic("in Handle_PGFLT, page table unexpectedly isnt exist");
   }
   // free the page to buffer from swap file
   ImportFromFilePageToBuffer(align_va);
@@ -537,14 +534,15 @@ Handle_PGFLT(uint va){
   if(InitFreeMemPage(pa, align_va) < 0){
     panic("in Handle_PGFLT, unexpectedly failed to find unused entry in main_mem array of the process");
   }
-  memmove(align_va_kernel_vir, buffer, PGSIZE);
+  memmove(P2V(pa), buffer, PGSIZE);
   if( (pte = walkpgdir(pgdir, align_va, 0)) == 0){
     panic("page table isnt in physical memery after Handle_PGFLT\n");
   } else if( (*pte & PTE_P) == 0){
     panic("user page isnt in physical memery after Handle_PGFLT\n");
   }
   *pte &= ~PTE_PG;
-  cprintf("finish handle page fault\n");
+
+  cprintf("finish handle page fault, pte = 0x%x\n", *pte);
 }
 
 // Deallocate user pages to bring the process size from oldsz to
