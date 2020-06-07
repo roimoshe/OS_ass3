@@ -317,7 +317,7 @@ LAP_AGING_Algo(struct proc *p){
 
 int
 RemovePageFromQueue(struct proc *p, struct page *curr_page, struct page *prev_page){
-  if((prev_page ==0) && prev_page->nextPage != curr_page){
+  if((prev_page ==0) || prev_page->nextPage != curr_page){
       //need to find prev
       prev_page = p-> queue_head;
       while(prev_page->nextPage!=curr_page){
@@ -372,7 +372,7 @@ GetSwapPageIndex(struct proc *p){
 #elif SELECTION==LAPA
   return LAP_AGING_Algo(p);
 #elif SELECTION==SCFIFO
-  cprintf("in SCFIFO-------->\n")
+  cprintf("in SCFIFO-------->\n");
   return Second_chance_FIFO_Algo(p);
 #elif SELECTION==AQ
   return NFU_AGING_Algo(p);// TODO: replace
