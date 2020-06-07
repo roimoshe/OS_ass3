@@ -1,9 +1,7 @@
+#ifndef MMU_H
+#define MMU_H 1
 // This file contains definitions for the
 // x86 memory management unit (MMU).
-
-// page flag
-#define  PTE_PG 0x200 
-#define  PTE_A 0x020 // Accessed
 
 // Eflags register
 #define FL_IF           0x00000200      // Interrupt Enable
@@ -99,6 +97,10 @@ struct segdesc {
 #define PTE_W           0x002   // Writeable
 #define PTE_U           0x004   // User
 #define PTE_PS          0x080   // Page Size
+#define PTE_COW         0x800   // copy on write
+#define PTE_COW_RO      0x100   // copy on write was read_only
+#define PTE_PG          0x200   
+#define PTE_A           0x020   // Accessed
 
 // Address in page table or page directory entry
 #define PTE_ADDR(pte)   ((uint)(pte) & ~0xFFF)
@@ -182,4 +184,5 @@ struct gatedesc {
   (gate).off_31_16 = (uint)(off) >> 16;                  \
 }
 
+#endif
 #endif

@@ -1,3 +1,5 @@
+#include "spinlock.h"
+#include "memlayout.h"
 #define  MAX_PSYC_PAGES 16
 #define  MAX_TOTAL_PAGES 32
 
@@ -36,6 +38,11 @@ struct context {
 };
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+
+typedef struct page_cow_counters_t{
+  struct spinlock lock;
+  uint counters[PHYSTOP/PGSIZE];
+} page_cow_counters_t;
 
 // page struct
 struct page {

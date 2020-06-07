@@ -5,26 +5,29 @@
 #include "mmu.h"
 #include "x86.h"
 #include "proc.h"
-#include "spinlock.h"
 #if SELECTION!=NONE
 static char buffer[PGSIZE];// for IO to Swap file
+extern page_cow_counters_t page_cow_counters;
 #endif
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
 } ptable;
-
+// TODO: lock the table
 static struct proc *initproc;
 int num_of_free_pages_after_kernel_load = 0;
 int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
-
+extern page_cow_counters_t page_cow_counters;
 static void wakeup1(void *chan);
 
 void
 pinit(void)
 {
+#if SELECTION!=NONE
+  initlock(&page_cow_counters.lock, "ptable");
+#endif
   initlock(&ptable.lock, "ptable");
 }
 
@@ -132,10 +135,10 @@ found:
     p->swap_file_pages[i].state_used=0;
     p->swap_file_pages[i].counter =0;
   }
-  #if SELECTION==SCFIFO{
+  #if SELECTION==SCFIFO
     p->queue_head = &p->main_mem_pages[0];
     p->queue_last = &p->main_mem_pages[0];
-  }
+  #endif
 #endif
   return p;
 }
@@ -213,15 +216,26 @@ fork(void)
   if((np = allocproc()) == 0){
     return -1;
   }
-
-  // Copy process state from proc.
-  if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0){
-    kfree(np->kstack);
-    np->kstack = 0;
-    np->state = UNUSED;
-    return -1;
-  }
 #if SELECTION!=NONE
+  if(curproc->pid <= 2){
+#endif
+  // Copy process state from proc.
+    if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0){
+      kfree(np->kstack);
+      np->kstack = 0;
+      np->state = UNUSED;
+      return -1;
+    }
+#if SELECTION!=NONE
+  } else{
+    // TODO: check if cow should be in NONE..
+    if((np->pgdir = copyuvm_cow(curproc->pgdir, curproc->sz)) == 0){
+      kfree(np->kstack);
+      np->kstack = 0;
+      np->state = UNUSED;
+      return -1;
+    }
+  }
   if(curproc->pid>2){
     for(int i=0;i<16;i++){
       if (curproc->swap_file_pages[i].state_used){

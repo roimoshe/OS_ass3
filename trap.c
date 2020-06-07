@@ -13,7 +13,9 @@ struct gatedesc idt[256];
 extern uint vectors[];  // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
-
+extern page_cow_counters_t page_cow_counters;
+pte_t *pte;
+uint rel;
 void
 tvinit(void)
 {
@@ -80,9 +82,25 @@ trap(struct trapframe *tf)
 #if SELECTION!=NONE
   //handling page fault TODO: check if segfault create t_PGFLT
   case T_PGFLT:
-    //switch case by the page replacment algo
-    UpdatePageCounters();
-    Handle_PGFLT(rcr2());
+    pte = walkpgdir(myproc()->pgdir, (void *)PGROUNDDOWN(rcr2()), 0);
+    if(pte == 0){
+      panic("pte is 0 in trap case T_PGFLT");
+    }
+    if((*pte & PTE_COW) || (*pte & PTE_COW_RO)){
+      rel = 0;
+      if(!holding(&page_cow_counters.lock)){
+        rel = 1;
+        acquire(&page_cow_counters.lock);
+      }
+      handle_cow(rcr2(), COW_COPY);
+      if(rel){
+        release(&page_cow_counters.lock);
+      }
+    } else{ //page_fault
+      //switch case by the page replacment algo
+      UpdatePageCounters();
+      Handle_PGFLT(rcr2());
+    }
     break;
 #endif
   //PAGEBREAK: 13

@@ -9,13 +9,15 @@ struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
-
+#include "mmu.h"
 #define NFUA 0
 #define LAPA 1
 #define SCFIFO 2
 #define AQ 3
 #define NONE 4
 
+#define COW_COPY 0
+#define COW_NO_COPY 1
 struct run {
   struct run *next;
 };
@@ -202,14 +204,17 @@ void            freevm(pde_t*);
 void            inituvm(pde_t*, char*, uint);
 int             loaduvm(pde_t*, char*, struct inode*, uint, uint);
 pde_t*          copyuvm(pde_t*, uint);
+pde_t*          copyuvm_cow(pde_t*, uint);
 void            switchuvm(struct proc*);
 void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
 #if SELECTION!=NONE
 void            Handle_PGFLT(uint va);//handle PGFLT trap in trap.c
+void            handle_cow(uint va, int copy);
 void            UpdatePageCounters(void);
 void            ResetPageCounter(struct proc *p, int index);
+pte_t          *walkpgdir(pde_t *pgdir, const void *va, int alloc);
 #endif
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

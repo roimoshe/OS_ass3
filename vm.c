@@ -8,6 +8,7 @@
 #include "elf.h"
 #if SELECTION!=NONE
 static char buffer[PGSIZE];// for IO to Swap file
+page_cow_counters_t page_cow_counters = {0};
 #endif
 extern char data[];  // defined by kernel.ld
 
@@ -36,7 +37,7 @@ seginit(void)
 // Return the address of the PTE in page table pgdir
 // that corresponds to virtual address va.  If alloc!=0,
 // create any required page table pages.
-static pte_t *
+pte_t *
 walkpgdir(pde_t *pgdir, const void *va, int alloc)
 {
   pde_t *pde;
@@ -360,7 +361,7 @@ Second_chance_FIFO_Algo(struct proc *p){
   }
   prev_page = p->queue_head;
   p->queue_head= p->queue_head->nextPage;
-  cprintf("page index=%d\n", prev_page->index);
+  // cprintf("page index=%d\n", prev_page->index);
   return prev_page->index;
 }
 
@@ -372,7 +373,7 @@ GetSwapPageIndex(struct proc *p){
 #elif SELECTION==LAPA
   return LAP_AGING_Algo(p);
 #elif SELECTION==SCFIFO
-  cprintf("in SCFIFO-------->\n");
+  // cprintf("in SCFIFO-------->\n");
   return Second_chance_FIFO_Algo(p);
 #elif SELECTION==AQ
   return NFU_AGING_Algo(p);// TODO: replace
@@ -384,7 +385,6 @@ void
 SwapOutPage(pde_t *pgdir){
   int sp_index = 0;
   int mm_index = 0;
- 
   while(sp_index<16){
     //finidng free page in swap file memory
     if(!myproc()->swap_file_pages[sp_index].state_used){
@@ -398,29 +398,40 @@ SwapOutPage(pde_t *pgdir){
   }
   //finidng used page in main memory by algo
   mm_index = GetSwapPageIndex(myproc());
+ //TODO: handle case in which the swapedout page is cow
   if(mm_index <0 || mm_index>15)
     panic("swappage: somthing wrong");
 
   void *mm_va = myproc()->main_mem_pages[mm_index].v_addr; // TODO: here we choose page to swapout
   //uint pa = V2P(mm_va);
 
-  writeToSwapFile(myproc(), mm_va, sp_index*PGSIZE, PGSIZE); 
+  // cprintf("swapout page : 0x%x\n", mm_va);
+  writeToSwapFile(myproc(), mm_va, sp_index*PGSIZE, PGSIZE);
   myproc()->swap_file_pages[sp_index].state_used =1;
   myproc()->swap_file_pages[sp_index].page_dir = myproc()->main_mem_pages[mm_index].page_dir;
   myproc()->swap_file_pages[sp_index].v_addr = mm_va;
 
   myproc()->main_mem_pages[mm_index].state_used = 0;
   ResetPageCounter(myproc(), mm_index);
-
+  acquire(&page_cow_counters.lock);
   // update pte flags
   pte_t *pte = walkpgdir(pgdir, mm_va, 0);
   uint pa = PTE_ADDR(*pte);
-  kfree(P2V(pa));
+  
+  if((*pte & PTE_COW) || (*pte & PTE_COW_RO)){
+    handle_cow((uint)mm_va, COW_NO_COPY);
+    if(page_cow_counters.counters[pa/PGSIZE] == 0){
+      kfree(P2V(pa));
+    }
+  } else{
+    kfree(P2V(pa));
+  }
 
   *pte |= PTE_PG;
   *pte &= ~PTE_P;
   lcr3(V2P(myproc()->pgdir));
   myproc()->swaps_out_counter+=1;
+  release(&page_cow_counters.lock);
 }
 
 int    
@@ -520,13 +531,13 @@ ImportFromFilePageToBuffer(void *va){
 
 void             
 Handle_PGFLT(uint va){
-  cprintf("<PF 0x%x>\n", va);
+  // cprintf("<PF 0x%x>\n", va);
   void * align_va = (void *)PGROUNDDOWN(va);
   uint pa;
   int mm_index = 0;
   pde_t *pgdir = myproc()->pgdir;
   pte_t *pte = walkpgdir(pgdir, align_va, 0);
-
+  // cprintf("in Handle_PGFLT: *pte = 0x%x\n", *pte);
   myproc()->page_fault_counter+=1;
   if(pte == 0){
     panic("in Handle_PGFLT, no page_table exits");
@@ -566,7 +577,7 @@ Handle_PGFLT(uint va){
     panic("user page isnt in physical memery after Handle_PGFLT\n");
   }
   *pte &= ~PTE_PG;
-  cprintf("finish handle page fault, pte = 0x%x\n", *pte);
+  // cprintf("finish handle page fault, pte = 0x%x\n", *pte);
 #endif
 }
 
@@ -593,7 +604,11 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       if(pa == 0)
         panic("kfree");
       char *v = P2V(pa);
-      kfree(v);
+      acquire(&page_cow_counters.lock);
+      if(page_cow_counters.counters[pa/PGSIZE] == 0){
+        kfree(v);
+      }
+      release(&page_cow_counters.lock);
       *pte = 0;
 #if SELECTION!=NONE
       if(myproc()->pid>2){
@@ -665,7 +680,7 @@ copyuvm(pde_t *pgdir, uint sz)
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
       panic("copyuvm: pte should exist");
-    if(!(*pte & PTE_P))
+    if(!(*pte & PTE_P)) // TODO: shouldnt be good if we have swaps
       panic("copyuvm: page not present");
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
@@ -676,20 +691,51 @@ copyuvm(pde_t *pgdir, uint sz)
       kfree(mem);
       goto bad;
     }
-#if SELECTION!=NONE
-    // TODO: check if neccesry
-    // if(1 == PTE_PG & *pte){
-    //   *d |= PTE_PG;
-    //   *d &= ~PTE_P;
-    //   lcr3(V2P(myproc()->pgdir));
-    //   continue;
-    // }
-#endif
   }
   return d;
 
 bad:
   freevm(d);
+  return 0;
+}
+
+pde_t*
+copyuvm_cow(pde_t *pgdir, uint sz)
+{
+  pde_t *new_pgdir;
+  pte_t *pte;
+  uint pa, i, flags;
+
+  if((new_pgdir = setupkvm()) == 0)
+    return 0;
+  for(i = 0; i < sz; i += PGSIZE){
+    acquire(&page_cow_counters.lock);
+    if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
+      panic("copyuvm: pte should exist");
+    if(!(*pte & PTE_P)){
+      release(&page_cow_counters.lock);
+      continue;
+    }
+    if(*pte & PTE_W){
+      *pte |= PTE_COW;
+      *pte &= ~PTE_W;
+    } else{
+      *pte |= PTE_COW_RO;
+    }
+    pa = PTE_ADDR(*pte);
+    flags = PTE_FLAGS(*pte);
+    page_cow_counters.counters[pa/PGSIZE]++;
+    if(mappages(new_pgdir, (void*)i, PGSIZE, pa, flags) < 0) {
+      release(&page_cow_counters.lock);
+      goto bad;
+    }
+    release(&page_cow_counters.lock);
+  }
+  lcr3(V2P(myproc()->pgdir));
+  return new_pgdir;
+
+bad:
+  freevm(new_pgdir);
   return 0;
 }
 
@@ -763,3 +809,44 @@ UpdatePageCounters(){
   lcr3(V2P(p->pgdir));
 }
 #endif
+
+void
+remove_cow_flags(pte_t *pte){
+  if(*pte & PTE_COW_RO){
+    *pte &= ~PTE_COW_RO;
+    cprintf("remove_cow_flags: weird case..\n");
+  } else if(*pte & PTE_COW){
+    *pte &= ~PTE_COW;
+    *pte |= PTE_W;
+  } else{
+    panic("remove_cow_flags: no cow case\n");
+  }
+}
+
+void
+handle_cow(uint va, int copy){
+  char *mem = 0;
+  uint pa;
+  // cprintf("<COW-handle 0x%x>\n", va);
+  void * align_va = (void *)PGROUNDDOWN(va);
+  pde_t *pgdir = myproc()->pgdir;
+  pte_t *pte = walkpgdir(pgdir, align_va, 0);
+  if(pte == 0){
+    panic("in handle_cow: no pte \n");
+  }
+  pa = PTE_ADDR(*pte);
+  if(page_cow_counters.counters[pa/PGSIZE] > 0){
+    remove_cow_flags(pte);
+    if(copy == COW_COPY){
+      if((mem = kalloc()) == 0){
+        panic("in handle_cow: kalloc return 0\n");
+      }
+      memmove(mem, (char*)P2V(pa), PGSIZE);
+      *pte = V2P(mem) | PTE_FLAGS(*pte);
+    }
+    page_cow_counters.counters[pa/PGSIZE]--;
+  } else{
+    remove_cow_flags(pte);
+  }
+  lcr3(V2P(myproc()->pgdir));
+}
