@@ -317,7 +317,7 @@ LAP_AGING_Algo(struct proc *p){
 
 int
 RemovePageFromQueue(struct proc *p, struct page *curr_page, struct page *prev_page){
-  if(prev_page->nextPage != curr_page){
+  if((prev_page ==0) && prev_page->nextPage != curr_page){
       //need to find prev
       prev_page = p-> queue_head;
       while(prev_page->nextPage!=curr_page){
@@ -607,7 +607,8 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
           ResetPageCounter(myproc(), i);
 #if SELECTION==SCFIFO
           struct page *curr_page = &myproc()->main_mem_pages[i];
-          RemovePageFromQueue(myproc(), curr_page, 0);
+          struct page *prev =0;
+          RemovePageFromQueue(myproc(), curr_page, prev);
 #endif
         }
       }
