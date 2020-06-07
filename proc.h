@@ -36,7 +36,7 @@ struct context {
 };
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
-#if SELECTION!=NONE
+
 // page struct
 struct page {
   char state_used;
@@ -47,7 +47,7 @@ struct page {
   int index;
   //uint spfile_offset;
 };
-#endif
+
 // Per-process state
 struct proc {
   uint sz;                     // Size of process memory (bytes)
@@ -65,7 +65,7 @@ struct proc {
   char name[16];               // Process name (debugging)
   //Swap file. must initiate with create swap file
   struct file *swapFile;      //page file
-#if SELECTION!=NONE
+
   struct page main_mem_pages[MAX_PSYC_PAGES]; //page in main memmory
   struct page swap_file_pages[MAX_PSYC_PAGES]; //page in swap file
   int page_fault_counter;
@@ -73,7 +73,7 @@ struct proc {
   struct page *queue_head;
   struct page *queue_last;
   int queue_size;
-#endif
+
 };
 
 // Process memory is laid out contiguously, low addresses first:

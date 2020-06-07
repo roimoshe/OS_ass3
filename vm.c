@@ -372,6 +372,7 @@ GetSwapPageIndex(struct proc *p){
 #elif SELECTION==LAPA
   return LAP_AGING_Algo(p);
 #elif SELECTION==SCFIFO
+  cprintf("in SCFIFO-------->\n")
   return Second_chance_FIFO_Algo(p);
 #elif SELECTION==AQ
   return NFU_AGING_Algo(p);// TODO: replace
@@ -603,9 +604,11 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         if(i<16 && myproc()->main_mem_pages[i].page_dir == pgdir){
           myproc()->main_mem_pages[i].state_used = 0;
           myproc()->main_mem_pages[i].page_dir = 0;
+          ResetPageCounter(myproc(), i);
+#if SELECTION==SCFIFO
           struct page *curr_page = &myproc()->main_mem_pages[i];
           RemovePageFromQueue(myproc(), curr_page, 0);
-          ResetPageCounter(myproc(), i);
+#endif
         }
       }
 #endif
