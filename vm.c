@@ -236,7 +236,7 @@ InitPage(pde_t *pgdir, void *va, uint pa, int index){
       deallocuvm(pgdir, PGSIZE, PGSIZE);
       char *v = P2V(pa);
       kfree(v);
-      return 1;
+      return -1;
     }
   myproc()->main_mem_pages[index].state_used = 1;
   myproc()->main_mem_pages[index].v_addr = va;
@@ -384,7 +384,7 @@ SwapOutPage(pde_t *pgdir){
   }
   if(sp_index > 15){
     //proc has a max MAX_TOTAL_PAGES pages
-    return 0;
+    panic("in SwapOutPage: there is an unused page\n");
   }
   //finidng used page in main memory by algo
   mm_index = GetSwapPageIndex(myproc());
@@ -455,7 +455,9 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       while(i<16){
         //finidng free page in main memory
         if(!myproc()->main_mem_pages[i].state_used){
-          InitPage(pgdir, (char*)a, V2P(mem), i);
+          if( InitPage(pgdir, (char*)a, V2P(mem), i) < 0){
+            panic("failed to InitPage in allocuvm\n");
+          }
           break;
         }
         i++;
@@ -540,7 +542,7 @@ Handle_PGFLT(uint va){
     }
   }
   
-  if(InitFreeMemPage(pa, align_va)){
+  if(InitFreeMemPage(pa, align_va) < 0){
     panic("in Handle_PGFLT, unexpectedly failed to find unused entry in main_mem array of the process");
   }
   cprintf("before memove in handle page fault\n");
@@ -550,6 +552,7 @@ Handle_PGFLT(uint va){
   } else if( (*pte & PTE_P) == 0){
     panic("user page isnt in physical memery after Handle_PGFLT\n");
   }
+  *pte &= ~PTE_PG;
   cprintf("finish handle page fault\n");
 }
 
@@ -577,6 +580,7 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         panic("kfree");
       char *v = P2V(pa);
       kfree(v);
+      *pte = 0;
       if(myproc()->pid>2){
         int i =0;
         while(((uint)myproc()->main_mem_pages[i].v_addr != a) && i<16){
@@ -587,7 +591,6 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
           myproc()->main_mem_pages[i].page_dir = 0;
           ResetPageCounter(myproc(), i);
         }
-        *pte = 0;
       }
     }
   }
