@@ -53,7 +53,6 @@ trap(struct trapframe *tf)
       ticks++;
       wakeup(&ticks);
       release(&tickslock);
-
     }
     lapiceoi();
     break;
@@ -78,12 +77,14 @@ trap(struct trapframe *tf)
             cpuid(), tf->cs, tf->eip);
     lapiceoi();
     break;
+#if SELECTION!=NONE
   //handling page fault TODO: check if segfault create t_PGFLT
   case T_PGFLT:
     //switch case by the page replacment algo
     UpdatePageCounters();
     Handle_PGFLT(rcr2());
     break;
+#endif
   //PAGEBREAK: 13
   default:
     if(myproc() == 0 || (tf->cs&3) == 0){

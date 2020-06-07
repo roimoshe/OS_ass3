@@ -6,9 +6,9 @@
 #include "mmu.h"
 #include "proc.h"
 #include "elf.h"
-
+#if SELECTION!=NONE
 static char buffer[PGSIZE];// for IO to Swap file
-
+#endif
 extern char data[];  // defined by kernel.ld
 
 pde_t *kpgdir;  // for use in scheduler()
@@ -219,7 +219,7 @@ loaduvm(pde_t *pgdir, char *addr, struct inode *ip, uint offset, uint sz)
   }
   return 0;
 }
-
+#if SELECTION!=NONE
 void
 ResetPageCounter(struct proc *p, int index){
 #if SELECTION==NFUA
@@ -375,8 +375,6 @@ GetSwapPageIndex(struct proc *p){
   return Second_chance_FIFO_Algo(p);
 #elif SELECTION==AQ
   return NFU_AGING_Algo(p);// TODO: replace
-#elif SELECTION==NONE
-  return NFU_AGING_Algo(p);// TODO: replace
 #endif
 panic("GetSwapPageIndex: no selection choosen\n");
 }
@@ -436,7 +434,7 @@ InitFreeMemPage(uint pa, void *va){
   }
   return -1;
 }
-
+#endif
 // Allocate page tables and physical memory to grow process from oldsz to
 // newsz, which need not be page aligned.  Returns new size or 0 on error.
 int
@@ -459,6 +457,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       return 0;
     }
     memset(mem, 0, PGSIZE);
+#if SELECTION!=NONE
     int i =0;
     // avoiding init & shell
     if(myproc()->pid > 2){
@@ -485,6 +484,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       continue;
     }
     else{
+#endif
       //init & shell act 
       if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
         cprintf("allocuvm out of memory (2)\n");
@@ -492,9 +492,12 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         kfree(mem);
         return 0;
       }
+#if SELECTION!=NONE
     }
+#endif
   }
   return newsz;
+#if SELECTION!=NONE
 }
 
 int
@@ -563,6 +566,7 @@ Handle_PGFLT(uint va){
   }
   *pte &= ~PTE_PG;
   cprintf("finish handle page fault, pte = 0x%x\n", *pte);
+#endif
 }
 
 // Deallocate user pages to bring the process size from oldsz to
@@ -590,6 +594,7 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       char *v = P2V(pa);
       kfree(v);
       *pte = 0;
+#if SELECTION!=NONE
       if(myproc()->pid>2){
         int i =0;
         while(((uint)myproc()->main_mem_pages[i].v_addr != a) && i<16){
@@ -603,6 +608,7 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
           ResetPageCounter(myproc(), i);
         }
       }
+#endif
     }
   }
   return newsz;
@@ -666,6 +672,7 @@ copyuvm(pde_t *pgdir, uint sz)
       kfree(mem);
       goto bad;
     }
+#if SELECTION!=NONE
     // TODO: check if neccesry
     // if(1 == PTE_PG & *pte){
     //   *d |= PTE_PG;
@@ -673,6 +680,7 @@ copyuvm(pde_t *pgdir, uint sz)
     //   lcr3(V2P(myproc()->pgdir));
     //   continue;
     // }
+#endif
   }
   return d;
 
@@ -729,7 +737,7 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
 //PAGEBREAK!
 // Blank page.
 
-
+#if SELECTION!=NONE
 void
 UpdatePageCounters(){
   struct proc *p = myproc();
@@ -750,3 +758,4 @@ UpdatePageCounters(){
   }
   lcr3(V2P(p->pgdir));
 }
+#endif

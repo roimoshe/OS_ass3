@@ -6,8 +6,9 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#if SELECTION!=NONE
 static char buffer[PGSIZE];// for IO to Swap file
-
+#endif
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -27,6 +28,7 @@ pinit(void)
   initlock(&ptable.lock, "ptable");
 }
 
+// Must be called with interrupts disabled
 int
 cpuid() {
   return mycpu()-cpus;
@@ -36,7 +38,6 @@ cpuid() {
 // rescheduled between reading lapicid and running through the loop.
 struct cpu*
 mycpu(void)
-// Must be called with interrupts disabled
 {
   int apicid, i;
   
@@ -89,8 +90,10 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+#if SELECTION!=NONE
   p->page_fault_counter = 0;
   p->swaps_out_counter = 0;
+#endif
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -113,7 +116,7 @@ found:
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
-
+#if SELECTION!=NONE
   //set up Swap file
   if(p->pid>2){
     if(createSwapFile(p)){
@@ -131,6 +134,7 @@ found:
   }
   p->queue_head = &p->main_mem_pages[0];
   p->queue_last = &p->main_mem_pages[0];
+#endif
   return p;
 }
 
@@ -215,7 +219,7 @@ fork(void)
     np->state = UNUSED;
     return -1;
   }
-
+#if SELECTION!=NONE
   if(curproc->pid>2){
     for(int i=0;i<16;i++){
       if (curproc->swap_file_pages[i].state_used){
@@ -227,6 +231,7 @@ fork(void)
     memmove(curproc->main_mem_pages, np->main_mem_pages, sizeof(struct page)*16);// TODO: check address correctness
     memmove(curproc->swap_file_pages, np->swap_file_pages, sizeof(struct page)*16);// TODO: check address correctness
   }
+#endif
   np->sz = curproc->sz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
@@ -248,6 +253,7 @@ fork(void)
   np->state = RUNNABLE;
 
   release(&ptable.lock);
+
   return pid;
 }
 
@@ -337,6 +343,7 @@ wait(void)
         p->name[0] = 0;
         p->killed = 0;
         p->state = UNUSED;
+#if SELECTION!=NONE
         if(p->pid>2){
           // free proc pages
           int i =0;
@@ -350,6 +357,7 @@ wait(void)
           // remove swap file
           removeSwapFile(p);
         }
+#endif
         release(&ptable.lock);
         return pid;
       }
@@ -550,7 +558,7 @@ kill(int pid)
   release(&ptable.lock);
   return -1;
 }
-
+#if SELECTION!=NONE
 int get_number_of_used_pages_in_array(struct page *pages_array, int size){
   int counter = 0;
   for (int i = 0; i < size; i++){
@@ -568,7 +576,7 @@ int get_number_of_allocated_memory_pages(struct proc *p){
 int get_number_of_swaped_out_pages(struct proc *p){
   return get_number_of_used_pages_in_array(p->swap_file_pages, MAX_PSYC_PAGES);
 }
-
+#endif
 //PAGEBREAK: 36
 // Print a process listing to console.  For debugging.
 // Runs when user types ^P on console.
@@ -596,9 +604,13 @@ procdump(void)
       state = states[p->state];
     else
       state = "???"; // TODO: prints 0 pages for sh,init...
+#if SELECTION!=NONE
     cprintf("%d %s <allocated memory pages %d> <paged out %d> <page faults %d> <total paged out %d> %s\n", p->pid, state, 
       get_number_of_allocated_memory_pages(p), get_number_of_swaped_out_pages(p), p->page_fault_counter,
       p->swaps_out_counter, p->name);
+#else
+    cprintf("%d %s %s", p->pid, state, p->name);
+#endif
     if(p->state == SLEEPING){
       getcallerpcs((uint*)p->context->ebp+2, pc);
       for(i=0; i<10 && pc[i] != 0; i++)

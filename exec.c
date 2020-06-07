@@ -18,12 +18,12 @@ exec(char *path, char **argv)
   struct proghdr ph;
   pde_t *pgdir, *oldpgdir;
   struct proc *curproc = myproc();
-  
+#if SELECTION!=NONE
   for(int i = 0; i< 16; i++){
     curproc->swap_file_pages[i].state_used = 0;
     curproc->main_mem_pages[i].state_used = 0;
   }
-
+#endif
   begin_op();
 
   if((ip = namei(path)) == 0){
