@@ -43,6 +43,12 @@ sys_getpid(void)
 }
 
 int
+sys_getNumberOfFreePages(void)
+{
+  return get_num_of_free_pages();
+}
+
+int
 sys_sbrk(void)
 {
   int addr;
