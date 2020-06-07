@@ -1832,10 +1832,10 @@ main(int argc, char *argv[])
   printf(1, "----%d----\n", *pointer);
   sbrk(14*PGSIZE);
   printf(1,"-------------after sbrk2-----------\n");
-  sleep(2000);
   pointer = (int *)(a + PGSIZE * 10);
   *pointer = 99;
   func(pointer);
   printf(1, "----%d----\n", *pointer);
+  printf(1, "<<<<PASS TEST>>>>\n");
   exit();
 }

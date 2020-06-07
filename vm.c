@@ -271,10 +271,7 @@ NFU_AGING_Algo(struct proc *p){
     }
     i++;
   }
-  cprintf("page min counter index=%d\n", mm_index);
-  //cprintf("page max counter=%d\n",maxCounter);
   return mm_index;
-  //return 15;
 }
 
 uint GetSetBits(uint num){
@@ -386,7 +383,7 @@ GetSwapPageIndex(struct proc *p){
 panic("GetSwapPageIndex: no selection choosen\n");
 }
 
-uint
+void
 SwapOutPage(pde_t *pgdir){
   int sp_index = 0;
   int mm_index = 0;
@@ -421,13 +418,12 @@ SwapOutPage(pde_t *pgdir){
   // update pte flags
   pte_t *pte = walkpgdir(pgdir, mm_va, 0);
   uint pa = PTE_ADDR(*pte);
-  memset((void *)P2V(pa), 0, PGSIZE);//Todo: pa or va?
+  kfree(P2V(pa));
 
   *pte |= PTE_PG;
   *pte &= ~PTE_P;
   lcr3(V2P(myproc()->pgdir));
   myproc()->swaps_out_counter+=1;
-  return pa;
 }
 
 int    
@@ -480,8 +476,8 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       }
       //couldnt find a free page in main memory
       if(i>15){
-        kfree(mem);
-        uint pa = SwapOutPage(pgdir);
+        SwapOutPage(pgdir);
+        uint pa = V2P(mem);
         if(pa == 0){
           cprintf("error: process %d needs more than 32 page, exits...", myproc()->pid);
           exit();
@@ -528,15 +524,12 @@ Handle_PGFLT(uint va){
   int mm_index = 0;
   pde_t *pgdir = myproc()->pgdir;
   pte_t *pte = walkpgdir(pgdir, align_va, 0);
-  void *align_va_kernel_vir = P2V(PTE_ADDR(*pte));
 
   myproc()->page_fault_counter+=1;
   if(pte == 0){
     panic("in Handle_PGFLT, no page_table exits");
   } else if(!(*pte & PTE_PG)){
     panic("in Handle_PGFLT, got T_PGFLT but page isnt in the swap file"); // TODO: check this case
-  } else if(align_va_kernel_vir == 0){
-    panic("in Handle_PGFLT, page table unexpectedly isnt exist");
   }
   // free the page to buffer from swap file
   ImportFromFilePageToBuffer(align_va);
@@ -552,24 +545,26 @@ Handle_PGFLT(uint va){
 
   if(mm_index > 15){
     // page out mm page
-    pa = SwapOutPage(myproc()->pgdir);
-    if(pa==0){
-      panic("in Handle_PGFLT, unexpectedly no unused page in swap file");
+    SwapOutPage(myproc()->pgdir);
+    char *virpa = kalloc();
+    if(virpa==0){
+      panic("in Handle_PGFLT, kalloc return 0");
     }
+    pa = (uint)V2P(virpa);
   }
   
   if(InitFreeMemPage(pa, align_va) < 0){
     panic("in Handle_PGFLT, unexpectedly failed to find unused entry in main_mem array of the process");
   }
-  cprintf("before memove in handle page fault\n");
-  memmove(align_va_kernel_vir, buffer, PGSIZE);
+  
+  memmove(P2V(pa), buffer, PGSIZE);
   if( (pte = walkpgdir(pgdir, align_va, 0)) == 0){
     panic("page table isnt in physical memery after Handle_PGFLT\n");
   } else if( (*pte & PTE_P) == 0){
     panic("user page isnt in physical memery after Handle_PGFLT\n");
   }
   *pte &= ~PTE_PG;
-  cprintf("finish handle page fault\n");
+  cprintf("finish handle page fault, pte = 0x%x\n", *pte);
 }
 
 // Deallocate user pages to bring the process size from oldsz to
