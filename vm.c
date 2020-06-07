@@ -311,8 +311,6 @@ LAP_AGING_Algo(struct proc *p){
     }
     i++;
   }
-  cprintf("page min counter index=%d\n", mm_index);
-  //cprintf("page max counter=%d\n",maxCounter);
   return mm_index;
   //return 15;
 }
