@@ -904,7 +904,7 @@ QueueRemovePage(struct proc *p, int pageIndex){
   return foundFlag;
 }
 
-int
+void
 CleanQueue(struct proc *p){
   for(int i = 0; i < 16; i++){
       p->page_queue[i]=-1;

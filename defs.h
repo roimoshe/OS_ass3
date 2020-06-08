@@ -218,7 +218,7 @@ pte_t          *walkpgdir(pde_t *pgdir, const void *va, int alloc);
 void            QueuePage(struct proc *p, int pageIndex);
 int             DequeuePage(struct proc *p);
 int             QueueRemovePage(struct proc *p, int pageIndex);
-int             CleanQueue(struct proc *p);
+void             CleanQueue(struct proc *p);
 #endif
 int get_num_of_free_pages();
 // number of elements in fixed-size array

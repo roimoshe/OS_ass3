@@ -44,7 +44,7 @@ exec(char *path, char **argv)
     goto bad;
 
   #if SELECTION==SCFIFO
-     CleanQueue(p);
+     CleanQueue(curproc);
   #endif
   // Load program into memory.
   sz = 0;
