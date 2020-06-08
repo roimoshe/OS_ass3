@@ -345,7 +345,7 @@ Second_chance_FIFO_Algo(struct proc *p){
   pte_t *pte;
 
   for (int i=0; i< p->queue_size; i++){
-    int currPageIndex =p->page_queue[i];
+    int currPageIndex = DequeuePage(p);
     if(currPageIndex == -1 || currPageIndex > MAX_PSYC_PAGES)
       panic("something wrong in page queue");
     
@@ -355,11 +355,10 @@ Second_chance_FIFO_Algo(struct proc *p){
 
     //finidng used page in main memory
     pte = walkpgdir(p->pgdir, curr_page.v_addr, 0);
-    if(!(*pte & PTE_A)){
-      // last page
-      QueueRemovePage(p, currPageIndex);
+    if(!(*pte & PTE_A))
       return currPageIndex;
-    }
+
+    QueuePage(p,currPageIndex);
   }
   return DequeuePage(p);
 }
@@ -485,7 +484,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       //couldnt find a free page in main memory
       if(i>15){
         SwapOutPage(pgdir);
-        uint pa = V2PInitFreeMemPage(mem);
+        uint pa = V2P(mem);
         if(pa == 0){
           cprintf("error: process %d needs more than 32 page, exits...", myproc()->pid);
           exit();
