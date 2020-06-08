@@ -343,7 +343,7 @@ RemovePageFromQueue(struct proc *p, struct page *curr_page, struct page *prev_pa
 int
 Second_chance_FIFO_Algo(struct proc *p){
   pte_t *pte;
-
+  cprintf("second change fifo queue size=%d\n", p->queue_size);
   for (int i=0; i< p->queue_size; i++){
     int currPageIndex = DequeuePage(p);
     if(currPageIndex == -1 || currPageIndex > MAX_PSYC_PAGES)
