@@ -863,18 +863,19 @@ QueuePage(struct proc *p, int pageIndex){
   p->queue_size++;
 }
 
-void
+int
 DequeuePage(struct proc *p){
   cprintf("in DEQueuePage, queue size=%d\n", p->queue_size);
 
   if(p-> queue_size ==0)
     panic("cannot dequeue empty queue");
-
+  int output = p->page_queue[0];
   for(int i = 1; i< p->queue_size; i++){ 
       p->page_queue[i-1] = p->page_queue[i];
   }
   p->page_queue[p->queue_size -1] = -1;
   p->queue_size --;
+  return output;
 }
 
 int

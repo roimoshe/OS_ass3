@@ -215,8 +215,8 @@ void            handle_cow(uint va, int copy);
 void            UpdatePageCounters(void);
 void            ResetPageCounter(struct proc *p, int index);
 pte_t          *walkpgdir(pde_t *pgdir, const void *va, int alloc);
-void             QueuePage(struct proc *p, int pageIndex);
-void             DequeuePage(struct proc *p);
+void            QueuePage(struct proc *p, int pageIndex);
+int             DequeuePage(struct proc *p);
 int             QueueRemovePage(struct proc *p, int pageIndex);
 #endif
 int get_num_of_free_pages();
