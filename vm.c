@@ -243,8 +243,9 @@ InitPage(pde_t *pgdir, void *va, uint pa, int index){
   myproc()->main_mem_pages[index].v_addr = va;
   myproc()->main_mem_pages[index].page_dir = pgdir;
   ResetPageCounter( myproc(), index);
-  myproc()->queue_last->nextPage = &myproc()->main_mem_pages[index];
-  myproc()->queue_last = myproc()->queue_last->nextPage;
+  #if SELECTION==SCFIFO
+  QueuePage(myproc(),index);
+  #endif
   //Todo: need to update lcr3?
   return 0;
 }
@@ -316,6 +317,7 @@ LAP_AGING_Algo(struct proc *p){
   //return 15;
 }
 
+/*
 int
 RemovePageFromQueue(struct proc *p, struct page *curr_page, struct page *prev_page){
   if((prev_page ==0) || prev_page->nextPage != curr_page){
@@ -336,33 +338,32 @@ RemovePageFromQueue(struct proc *p, struct page *curr_page, struct page *prev_pa
     p->queue_last = prev_page;
     p->queue_head = curr_page->nextPage;
     return curr_page->index;
-}
+}*/
 
 int
 Second_chance_FIFO_Algo(struct proc *p){
   pte_t *pte;
-  struct page *prev_page = p->queue_head ;
-  if(prev_page->state_used == 0){
-    panic("NFU_AGING_Algo: found unused page in main_mem_pages arr");
-  }
 
-  while(prev_page->nextPage!=p->queue_last){
-    if(prev_page->state_used == 0)
+  for (int i=0; i< p->queue_size; i++){
+    int currPageIndex =p->page_queue[i];
+    if(currPageIndex == -1 || currPageIndex > MAX_PSYC_PAGES)
+      panic("something wrong in page queue");
+    
+    struct page curr_page = p->main_mem_pages[currPageIndex];
+    if(curr_page.state_used == 0)
       panic("NFU_AGING_Algo: found unused page in main_mem_pages arr");
 
-    struct page *curr_page = prev_page->nextPage;
-
     //finidng used page in main memory
-    pte = walkpgdir(p->pgdir, curr_page->v_addr, 0);
-    if(*pte & PTE_A){
+    pte = walkpgdir(p->pgdir, curr_page.v_addr, 0);
+    if(!(*pte & PTE_A)){
       // last page
-      return RemovePageFromQueue(p, curr_page, prev_page);
+      QueueRemovePage(p, currPageIndex);
+      return currPageIndex;
     }
   }
-  prev_page = p->queue_head;
-  p->queue_head= p->queue_head->nextPage;
-  // cprintf("page index=%d\n", prev_page->index);
-  return prev_page->index;
+  int headPageIndex =p->page_queue[0];
+  DequeuePage(p);
+  return headPageIndex;
 }
 
 
@@ -624,11 +625,9 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
           myproc()->main_mem_pages[i].state_used = 0;
           myproc()->main_mem_pages[i].page_dir = 0;
           ResetPageCounter(myproc(), i);
-#if SELECTION==SCFIFO
-          struct page *curr_page = &myproc()->main_mem_pages[i];
-          struct page *prev =0;
-          RemovePageFromQueue(myproc(), curr_page, prev);
-#endif
+          #if SELECTION==SCFIFO
+          QueueRemovePage(myproc(), i);
+          #endif
         }
       }
 #endif
@@ -853,3 +852,51 @@ handle_cow(uint va, int copy){
   lcr3(V2P(myproc()->pgdir));
 }
 #endif
+
+void
+QueuePage(struct proc *p, int pageIndex){
+  cprintf("in QueuePage pageindex=%d, queue size=%d\n", pageIndex, p->queue_size);
+  if(pageIndex > MAX_PSYC_PAGES || pageIndex< 0 || p->queue_size==MAX_PSYC_PAGES){
+    panic("somthing wrong in QueuePage");
+  }
+  p->page_queue[p->queue_size] = pageIndex;
+  p->queue_size++;
+}
+
+void
+DequeuePage(struct proc *p){
+  cprintf("in DEQueuePage, queue size=%d\n", p->queue_size);
+
+  if(p-> queue_size ==0)
+    panic("cannot dequeue empty queue");
+
+  for(int i = 1; i< p->queue_size; i++){ 
+      p->page_queue[i-1] = p->page_queue[i];
+  }
+  p->page_queue[p->queue_size -1] = -1;
+  p->queue_size --;
+}
+
+int
+QueueRemovePage(struct proc *p, int pageIndex){
+  cprintf("in QueueRemovePage pageindex=%d, queue size=%d\n", pageIndex, p->queue_size);
+
+  if(pageIndex > MAX_PSYC_PAGES || pageIndex< 0){
+    panic("somthing wrong in QueueRemovePage");
+  }
+  int foundFlag =0;
+  for(int i = 0; i< p->queue_size; i++){ 
+    if(p->page_queue[i]==pageIndex){
+      //found the page
+      foundFlag =1;
+    }
+    else if(foundFlag){
+      p->page_queue[i-1] = p->page_queue[i];
+    }
+  }
+  if(foundFlag){
+     p->page_queue[p->queue_size -1] = -1;
+     p->queue_size --;
+  }
+  return foundFlag;
+}

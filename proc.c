@@ -136,8 +136,12 @@ found:
     p->swap_file_pages[i].counter =0;
   }
   #if SELECTION==SCFIFO
-    p->queue_head = &p->main_mem_pages[0];
-    p->queue_last = &p->main_mem_pages[0];
+      for(int i = 0; i < 16; i++){
+        p->page_queue[i]=-1;
+      }
+      p->queue_size = 0;
+    //p->queue_head = &p->main_mem_pages[0];
+    //p->queue_last = &p->main_mem_pages[0];
   #endif
 #endif
   return p;
@@ -248,16 +252,9 @@ fork(void)
     memmove(curproc->swap_file_pages, np->swap_file_pages, sizeof(struct page)*16);// TODO: check address correctness
 
   #if SELECTION==SCFIFO
-        // copy the queue to the son
-    struct page *currPage_np = np->queue_head;
-    struct page *currPage =np->queue_head; 
-    currPage_np  = &np->main_mem_pages[currPage->index]; 
-    while (currPage != np->queue_last)
-    {
-     currPage_np->nextPage  = &np->main_mem_pages[currPage->index];
-    }
-    
-  
+  // copy the queue to the son
+  memmove(curproc->page_queue, np->page_queue, sizeof(int)*16);// TODO: check address correctnes 
+  np->queue_size = curproc->queue_size;
   #endif
 }
 #endif

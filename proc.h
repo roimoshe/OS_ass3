@@ -55,6 +55,12 @@ struct page {
   //uint spfile_offset;
 };
 
+/*struct p_queue {
+  int page_index; //main_mem index
+  struct p_queue *next_page; //next page
+};*/
+
+
 // Per-process state
 struct proc {
   uint sz;                     // Size of process memory (bytes)
@@ -77,8 +83,10 @@ struct proc {
   struct page swap_file_pages[MAX_PSYC_PAGES]; //page in swap file
   int page_fault_counter;
   int swaps_out_counter;
-  struct page *queue_head;
-  struct page *queue_last;
+
+  int page_queue[MAX_PSYC_PAGES];
+  //struct p_queue *queue_head;
+  //struct p_queue *queue_last;
   int queue_size;
 
 };
