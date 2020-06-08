@@ -43,7 +43,7 @@ exec(char *path, char **argv)
   if((pgdir = setupkvm()) == 0)
     goto bad;
 
-  #if SELECTION==SCFIFO
+  #if SELECTION==SCFIFO || SELECTION==AQ
      CleanQueue(curproc);
   #endif
   // Load program into memory.

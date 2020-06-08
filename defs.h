@@ -213,6 +213,7 @@ void            clearpteu(pde_t *pgdir, char *uva);
 void            Handle_PGFLT(uint va);//handle PGFLT trap in trap.c
 void            handle_cow(uint va, int copy);
 void            UpdatePageCounters(void);
+void            update_AQ(void);
 void            ResetPageCounter(struct proc *p, int index);
 pte_t          *walkpgdir(pde_t *pgdir, const void *va, int alloc);
 void            QueuePage(struct proc *p, int pageIndex);

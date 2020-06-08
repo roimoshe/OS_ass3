@@ -243,7 +243,7 @@ InitPage(struct proc *p, pde_t *pgdir, void *va, uint pa, int index){
   p->main_mem_pages[index].v_addr = va;
   p->main_mem_pages[index].page_dir = pgdir;
   ResetPageCounter( p, index);
-  #if SELECTION==SCFIFO
+  #if SELECTION==SCFIFO || SELECTION==AQ
   QueuePage(p,index);
   #endif
   //Todo: need to update lcr3?
@@ -314,31 +314,7 @@ LAP_AGING_Algo(struct proc *p){
     i++;
   }
   return mm_index;
-  //return 15;
 }
-
-/*
-int
-RemovePageFromQueue(struct proc *p, struct page *curr_page, struct page *prev_page){
-  if((prev_page ==0) || prev_page->nextPage != curr_page){
-      //need to find prev
-      prev_page = p-> queue_head;
-      while(prev_page->nextPage!=curr_page){
-        prev_page = prev_page->nextPage;
-        if(prev_page == p->queue_last){
-          panic("somthing wring in second chance ");
-        }
-      }
-    }
-    // last page
-    if(curr_page == p->queue_last){
-      p->queue_last = prev_page;
-    }
-    p->queue_last->nextPage = p->queue_head;
-    p->queue_last = prev_page;
-    p->queue_head = curr_page->nextPage;
-    return curr_page->index;
-}*/
 
 int
 Second_chance_FIFO_Algo(struct proc *p){
@@ -363,6 +339,11 @@ Second_chance_FIFO_Algo(struct proc *p){
   return DequeuePage(p);
 }
 
+int
+AQ_Algo(struct proc *p){
+  return DequeuePage(p);
+}
+
 
 int
 GetSwapPageIndex(struct proc *p){
@@ -374,7 +355,7 @@ GetSwapPageIndex(struct proc *p){
   // cprintf("in SCFIFO-------->\n");
   return Second_chance_FIFO_Algo(p);
 #elif SELECTION==AQ
-  return NFU_AGING_Algo(p);// TODO: replace
+  return AQ_Algo(p);// TODO: replace
 #endif
 panic("GetSwapPageIndex: no selection choosen\n");
 }
@@ -628,7 +609,7 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
           myproc()->main_mem_pages[i].state_used = 0;
           myproc()->main_mem_pages[i].page_dir = 0;
           ResetPageCounter(myproc(), i);
-          #if SELECTION==SCFIFO
+          #if SELECTION==SCFIFO || SELECTION==AQ
           QueueRemovePage(myproc(), i);
           #endif
         }
@@ -853,11 +834,9 @@ handle_cow(uint va, int copy){
   }
   lcr3(V2P(myproc()->pgdir));
 }
-#endif
 
 void
 QueuePage(struct proc *p, int pageIndex){
-  cprintf("in QueuePage pageindex=%d, queue size=%d\n", pageIndex, p->queue_size);
   if(pageIndex >= MAX_PSYC_PAGES || pageIndex< 0 || p->queue_size==MAX_PSYC_PAGES){
     panic("somthing wrong in QueuePage");
   }
@@ -867,8 +846,6 @@ QueuePage(struct proc *p, int pageIndex){
 
 int
 DequeuePage(struct proc *p){
-  cprintf("in DEQueuePage, queue size=%d\n", p->queue_size);
-
   if(p-> queue_size ==0)
     panic("cannot dequeue empty queue");
   int output = p->page_queue[0];
@@ -882,8 +859,6 @@ DequeuePage(struct proc *p){
 
 int
 QueueRemovePage(struct proc *p, int pageIndex){
-  cprintf("in QueueRemovePage pageindex=%d, queue size=%d\n", pageIndex, p->queue_size);
-
   if(pageIndex >= MAX_PSYC_PAGES || pageIndex< 0){
     panic("somthing wrong in QueueRemovePage");
   }
@@ -911,3 +886,32 @@ CleanQueue(struct proc *p){
     }
     p->queue_size = 0;
 }
+
+void
+swap(int *a, int *b){
+  int tmp = *a;
+  *a = *b;
+  *b = tmp;
+}
+
+void
+update_AQ(void){
+  pte_t *curr_pte;
+  pte_t *prev_pte;
+  struct proc *p = myproc();
+  int curr_page_idx, prev_page_idx;
+  struct page curr_page, prev_page;
+  for(int i = 1; i < p->queue_size; i++){
+    curr_page_idx = p->page_queue[i];
+    prev_page_idx = p->page_queue[i-1];
+    curr_page = p->main_mem_pages[curr_page_idx];
+    prev_page = p->main_mem_pages[prev_page_idx];
+    curr_pte = walkpgdir(p->pgdir, curr_page.v_addr, 0);
+    prev_pte = walkpgdir(p->pgdir, prev_page.v_addr, 0);
+    if((*prev_pte & PTE_A) && (!(*curr_pte & PTE_A))){
+      swap(&p->page_queue[i], &p->page_queue[i-1]);
+      i++;
+    }
+  }
+}
+#endif

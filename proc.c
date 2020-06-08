@@ -135,7 +135,7 @@ found:
     p->swap_file_pages[i].state_used=0;
     p->swap_file_pages[i].counter =0;
   }
-  #if SELECTION==SCFIFO
+  #if SELECTION==SCFIFO || SELECTION==AQ
      CleanQueue(p);
   #endif
 #endif
@@ -246,11 +246,11 @@ fork(void)
     memmove(curproc->main_mem_pages, np->main_mem_pages, sizeof(struct page)*16);// TODO: check address correctness
     memmove(curproc->swap_file_pages, np->swap_file_pages, sizeof(struct page)*16);// TODO: check address correctness
 
-  #if SELECTION==SCFIFO
-  // copy the queue to the son
-  memmove(curproc->page_queue, np->page_queue, sizeof(int)*16);// TODO: check address correctnes 
-  np->queue_size = curproc->queue_size;
-  #endif
+#if SELECTION==SCFIFO || SELECTION==AQ
+    // copy the queue to the son
+    memmove(curproc->page_queue, np->page_queue, sizeof(int)*16);// TODO: check address correctnes 
+    np->queue_size = curproc->queue_size;
+#endif
 }
 #endif
   np->sz = curproc->sz;
@@ -377,7 +377,7 @@ wait(void)
               ResetPageCounter(p, i);
               i++;
           }
-          #if SELECTION==SCFIFO
+          #if SELECTION==SCFIFO || SELECTION==AQ
               CleanQueue(p);
           #endif
         }
@@ -594,7 +594,9 @@ int get_number_of_used_pages_in_array(struct page *pages_array, int size){
 }
 
 int get_number_of_allocated_memory_pages(struct proc *p){
-  return get_number_of_used_pages_in_array(p->main_mem_pages, MAX_PSYC_PAGES);
+  int out = get_number_of_used_pages_in_array(p->main_mem_pages, MAX_PSYC_PAGES) +
+            get_number_of_used_pages_in_array(p->swap_file_pages, MAX_PSYC_PAGES);
+  return out;
 }
 
 int get_number_of_swaped_out_pages(struct proc *p){

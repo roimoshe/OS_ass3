@@ -98,6 +98,9 @@ trap(struct trapframe *tf)
       }
     } else{ //page_fault
       //switch case by the page replacment algo
+#if SELECTION==AQ
+      update_AQ();
+#endif
       UpdatePageCounters();
       Handle_PGFLT(rcr2());
     }
