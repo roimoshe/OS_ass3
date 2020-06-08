@@ -380,6 +380,12 @@ wait(void)
               ResetPageCounter(p, i);
               i++;
           }
+          #if SELECTION==SCFIFO
+            for (int i=0; i< MAX_PSYC_PAGES; i++){
+              p->page_queue[i] = -1;
+            }
+            p->queue_size = 0;
+          #endif
           // remove swap file
           removeSwapFile(p);
         }
