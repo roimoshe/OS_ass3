@@ -361,9 +361,7 @@ Second_chance_FIFO_Algo(struct proc *p){
       return currPageIndex;
     }
   }
-  int headPageIndex =p->page_queue[0];
-  DequeuePage(p);
-  return headPageIndex;
+  return DequeuePage(p);
 }
 
 
@@ -487,7 +485,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       //couldnt find a free page in main memory
       if(i>15){
         SwapOutPage(pgdir);
-        uint pa = V2P(mem);
+        uint pa = V2PInitFreeMemPage(mem);
         if(pa == 0){
           cprintf("error: process %d needs more than 32 page, exits...", myproc()->pid);
           exit();
@@ -856,7 +854,7 @@ handle_cow(uint va, int copy){
 void
 QueuePage(struct proc *p, int pageIndex){
   cprintf("in QueuePage pageindex=%d, queue size=%d\n", pageIndex, p->queue_size);
-  if(pageIndex > MAX_PSYC_PAGES || pageIndex< 0 || p->queue_size==MAX_PSYC_PAGES){
+  if(pageIndex >= MAX_PSYC_PAGES || pageIndex< 0 || p->queue_size==MAX_PSYC_PAGES){
     panic("somthing wrong in QueuePage");
   }
   p->page_queue[p->queue_size] = pageIndex;
@@ -882,7 +880,7 @@ int
 QueueRemovePage(struct proc *p, int pageIndex){
   cprintf("in QueueRemovePage pageindex=%d, queue size=%d\n", pageIndex, p->queue_size);
 
-  if(pageIndex > MAX_PSYC_PAGES || pageIndex< 0){
+  if(pageIndex >= MAX_PSYC_PAGES || pageIndex< 0){
     panic("somthing wrong in QueueRemovePage");
   }
   int foundFlag =0;
