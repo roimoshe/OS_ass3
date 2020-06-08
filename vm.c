@@ -15,6 +15,31 @@ extern char data[];  // defined by kernel.ld
 pde_t *kpgdir;  // for use in scheduler()
 
 #define null 0;
+uint debug_mem_arr[40] = {0};
+int i = 0;
+//TODO: delete - debug
+#if SELECTION!=NONE
+void add_debug_mem_arr(uint addr){
+  debug_mem_arr[i] = addr;
+  i = (i+1)%40;
+}
+void remove_debug_mem_arr(uint addr){
+  for (int i=0; i<40; i++){
+    if(debug_mem_arr[i] == addr){
+      debug_mem_arr[i] = 0;
+    }
+  }
+}
+
+void print_debug_mem_arr(){
+  for (int i=0; i<40; i++){
+    if(debug_mem_arr[i]){
+      cprintf("unfreed addr = 0x%x (counter = %d)\n", debug_mem_arr[i], 
+                page_cow_counters.counters[debug_mem_arr[i]/PGSIZE]);
+    }
+  }
+}
+#endif
 // Set up CPU's kernel segment descriptors.
 // Run once on entry on each CPU.
 void
@@ -417,6 +442,7 @@ SwapOutPage(pde_t *pgdir){
   // update pte flags
   pte_t *pte = walkpgdir(pgdir, mm_va, 0);
   uint pa = PTE_ADDR(*pte);
+  cprintf("swapout vpa = 0x%x", P2V(pa));
   
   if((*pte & PTE_COW) || (*pte & PTE_COW_RO)){
     if(page_cow_counters.counters[pa/PGSIZE] == 0){
@@ -473,6 +499,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
     int i =0;
     // avoiding init & shell
     if(myproc()->pid > 2){
+      add_debug_mem_arr((uint)V2P(mem));
       while(i<16){
         //finidng free page in main memory
         if(!myproc()->main_mem_pages[i].state_used){
@@ -610,6 +637,10 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       #endif
         kfree(v);
       #if SELECTION!=NONE
+      } else if(page_cow_counters.counters[pa/PGSIZE] > 0){
+        page_cow_counters.counters[pa/PGSIZE]--;
+      } else{
+        panic("page_cow counter is negative");
       }
       release(&page_cow_counters.lock);
       #endif
@@ -829,6 +860,7 @@ remove_cow_flags(pte_t *pte){
 #if SELECTION!=NONE
 void
 handle_cow(uint va, int copy){
+
   char *mem = 0;
   uint pa;
   // cprintf("<COW-handle 0x%x>\n", va);
@@ -839,12 +871,18 @@ handle_cow(uint va, int copy){
     panic("in handle_cow: no pte \n");
   }
   pa = PTE_ADDR(*pte);
+  if(copy == COW_COPY){
+    cprintf("COW(copy) handle addr = 0x%x\n", P2V(pa));
+  } else{
+    cprintf("COW(no_copy) handle addr = 0x%x\n", P2V(pa));
+  }
   remove_cow_flags(pte);
   if(page_cow_counters.counters[pa/PGSIZE] > 0){
     if(copy == COW_COPY){
       if((mem = kalloc()) == 0){
         panic("in handle_cow: kalloc return 0\n");
       }
+      cprintf("COW handle new page addr = 0x%x\n", mem);
       memmove(mem, (char*)P2V(pa), PGSIZE);
       *pte = V2P(mem) | PTE_FLAGS(*pte);
     }
