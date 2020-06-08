@@ -322,6 +322,8 @@ exit(void)
   end_op();
   curproc->cwd = 0;
 
+  // remove swap file
+  removeSwapFile(curproc);
   acquire(&ptable.lock);
 
   // Parent might be sleeping in wait().
@@ -383,8 +385,6 @@ wait(void)
               ResetPageCounter(p, i);
               i++;
           }
-          // remove swap file
-          removeSwapFile(p);
         }
 #endif
         release(&ptable.lock);

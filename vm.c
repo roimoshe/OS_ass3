@@ -419,7 +419,9 @@ SwapOutPage(pde_t *pgdir){
   }
   if(sp_index > 15){
     //proc has a max MAX_TOTAL_PAGES pages
-    panic("in SwapOutPage: there is an unused page\n");
+    cprintf("no space in swap file\n");
+    cprintf("error: process %d needs more than 32 page, exits...\n", myproc()->pid);
+    exit();
   }
   //finidng used page in main memory by algo
   mm_index = GetSwapPageIndex(myproc());
@@ -515,7 +517,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         SwapOutPage(pgdir);
         uint pa = V2P(mem);
         if(pa == 0){
-          cprintf("error: process %d needs more than 32 page, exits...", myproc()->pid);
+          cprintf("error: process %d needs more than 32 page, exits...\n", myproc()->pid);
           exit();
         }
         InitFreeMemPage(pa, (char*)a);
@@ -849,7 +851,6 @@ void
 remove_cow_flags(pte_t *pte){
   if(*pte & PTE_COW_RO){
     *pte &= ~PTE_COW_RO;
-    cprintf("remove_cow_flags: weird case..\n");
   } else if(*pte & PTE_COW){
     *pte &= ~PTE_COW;
     *pte |= PTE_W;
