@@ -215,7 +215,7 @@ void            handle_cow(uint va, int copy);
 void            UpdatePageCounters(void);
 void            ResetPageCounter(struct proc *p, int index);
 pte_t          *walkpgdir(pde_t *pgdir, const void *va, int alloc);
-int get_num_of_free_pages();
 #endif
+int get_num_of_free_pages();
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
