@@ -231,7 +231,7 @@ ResetPageCounter(struct proc *p, int index){
 }
 
 int
-InitPage(pde_t *pgdir, void *va, uint pa, int index){
+InitPage(struct proc *p, pde_t *pgdir, void *va, uint pa, int index){
   if(mappages(pgdir, va, PGSIZE, pa, PTE_W|PTE_U) < 0){
       cprintf("allocuvm out of memory (2)\n");
       deallocuvm(pgdir, PGSIZE, PGSIZE);
@@ -239,12 +239,12 @@ InitPage(pde_t *pgdir, void *va, uint pa, int index){
       kfree(v);
       return -1;
     }
-  myproc()->main_mem_pages[index].state_used = 1;
-  myproc()->main_mem_pages[index].v_addr = va;
-  myproc()->main_mem_pages[index].page_dir = pgdir;
-  ResetPageCounter( myproc(), index);
+  p->main_mem_pages[index].state_used = 1;
+  p->main_mem_pages[index].v_addr = va;
+  p->main_mem_pages[index].page_dir = pgdir;
+  ResetPageCounter( p, index);
   #if SELECTION==SCFIFO
-  QueuePage(myproc(),index);
+  QueuePage(p,index);
   #endif
   //Todo: need to update lcr3?
   return 0;
@@ -440,7 +440,7 @@ InitFreeMemPage(uint pa, void *va){
   while(i<16){
     //finidng free page in main memory
     if(!myproc()->main_mem_pages[i].state_used){
-      return InitPage(myproc()->pgdir, va, pa, i);
+      return InitPage(myproc(), myproc()->pgdir, va, pa, i);
     }
     i++;
   }
@@ -476,9 +476,9 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       while(i<16){
         //finidng free page in main memory
         if(!myproc()->main_mem_pages[i].state_used){
-          if( InitPage(pgdir, (char*)a, V2P(mem), i) < 0){
+          if( InitPage(myproc(), pgdir, (char*)a, V2P(mem), i) < 0)
             panic("failed to InitPage in allocuvm\n");
-          }
+            
           break;
         }
         i++;
