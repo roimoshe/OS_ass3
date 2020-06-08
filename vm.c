@@ -419,10 +419,10 @@ SwapOutPage(pde_t *pgdir){
   uint pa = PTE_ADDR(*pte);
   
   if((*pte & PTE_COW) || (*pte & PTE_COW_RO)){
-    handle_cow((uint)mm_va, COW_NO_COPY);
     if(page_cow_counters.counters[pa/PGSIZE] == 0){
       kfree(P2V(pa));
     }
+    handle_cow((uint)mm_va, COW_NO_COPY);
   } else{
     kfree(P2V(pa));
   }
@@ -839,8 +839,8 @@ handle_cow(uint va, int copy){
     panic("in handle_cow: no pte \n");
   }
   pa = PTE_ADDR(*pte);
+  remove_cow_flags(pte);
   if(page_cow_counters.counters[pa/PGSIZE] > 0){
-    remove_cow_flags(pte);
     if(copy == COW_COPY){
       if((mem = kalloc()) == 0){
         panic("in handle_cow: kalloc return 0\n");
@@ -849,8 +849,6 @@ handle_cow(uint va, int copy){
       *pte = V2P(mem) | PTE_FLAGS(*pte);
     }
     page_cow_counters.counters[pa/PGSIZE]--;
-  } else{
-    remove_cow_flags(pte);
   }
   lcr3(V2P(myproc()->pgdir));
 }
