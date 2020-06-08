@@ -60,9 +60,9 @@ void
 kfree(char *v)
 {
   struct run *r;
-#if SELECTION!=NONE
-  remove_debug_mem_arr((uint)V2P(v));
-#endif
+// #if SELECTION!=NONE
+//   remove_debug_mem_arr((uint)V2P(v));
+// #endif
   if((uint)v % PGSIZE || v < end || V2P(v) >= PHYSTOP)
     panic("kfree");
 

@@ -613,9 +613,9 @@ int get_number_of_swaped_out_pages(struct proc *p){
 void
 procdump(void)
 {
-#if SELECTION!=NONE
-  print_debug_mem_arr();
-#endif
+// #if SELECTION!=NONE
+//   print_debug_mem_arr();
+// #endif
   static char *states[] = {
   [UNUSED]    "unused",
   [EMBRYO]    "embryo",

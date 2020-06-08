@@ -215,9 +215,9 @@ void            handle_cow(uint va, int copy);
 void            UpdatePageCounters(void);
 void            ResetPageCounter(struct proc *p, int index);
 pte_t          *walkpgdir(pde_t *pgdir, const void *va, int alloc);
-// TODO: delete - for debug
-void remove_debug_mem_arr(uint addr);
-void print_debug_mem_arr();
+// // TODO: delete - for debug
+// void remove_debug_mem_arr(uint addr);
+// void print_debug_mem_arr();
 #endif
 int get_num_of_free_pages();
 // number of elements in fixed-size array
