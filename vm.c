@@ -478,7 +478,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         if(!myproc()->main_mem_pages[i].state_used){
           if( InitPage(myproc(), pgdir, (char*)a, V2P(mem), i) < 0)
             panic("failed to InitPage in allocuvm\n");
-            
+
           break;
         }
         i++;
@@ -902,4 +902,12 @@ QueueRemovePage(struct proc *p, int pageIndex){
      p->queue_size --;
   }
   return foundFlag;
+}
+
+int
+CleanQueue(struct proc *p){
+  for(int i = 0; i < 16; i++){
+      p->page_queue[i]=-1;
+    }
+    p->queue_size = 0;
 }

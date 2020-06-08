@@ -136,12 +136,7 @@ found:
     p->swap_file_pages[i].counter =0;
   }
   #if SELECTION==SCFIFO
-      for(int i = 0; i < 16; i++){
-        p->page_queue[i]=-1;
-      }
-      p->queue_size = 0;
-    //p->queue_head = &p->main_mem_pages[0];
-    //p->queue_last = &p->main_mem_pages[0];
+     CleanQueue(p);
   #endif
 #endif
   return p;
@@ -383,10 +378,7 @@ wait(void)
               i++;
           }
           #if SELECTION==SCFIFO
-            for (int i=0; i< MAX_PSYC_PAGES; i++){
-              p->page_queue[i] = -1;
-            }
-            p->queue_size = 0;
+              CleanQueue(p);
           #endif
         }
 #endif
