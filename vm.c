@@ -313,7 +313,7 @@ LAP_AGING_Algo(struct proc *p){
     else{
       //finidng used page in main memory
       int curr_num_of_1 = GetSetBits(p->main_mem_pages[i].counter);
-      if(curr_num_of_1 <= num_of_1){
+      if(curr_num_of_1 < num_of_1){
         minCounter_1 = p->main_mem_pages[i].counter;
         mm_index = i;
         num_of_1 = curr_num_of_1;
