@@ -336,7 +336,6 @@ LAP_AGING_Algo(struct proc *p){
 int
 Second_chance_FIFO_Algo(struct proc *p){
   pte_t *pte;
-  //cprintf("second change fifo queue size=%d\n", p->queue_size);
   int first_not_PU = -1;
   for (int i=0; i< p->queue_size; i++){
     int currPageIndex = DequeuePage(p);
@@ -447,7 +446,6 @@ SwapOutPage(pde_t *pgdir){
   if((*pte & PTE_U) == 0)
     panic("swap page not private user page");
 
-  // cprintf("swapout page : 0x%x\n", mm_va);
   writeToSwapFile(myproc(), mm_va, sp_index*PGSIZE, PGSIZE);
   myproc()->swap_file_pages[sp_index].state_used =1;
   myproc()->swap_file_pages[sp_index].page_dir = myproc()->main_mem_pages[mm_index].page_dir;
@@ -573,13 +571,11 @@ ImportFromFilePageToBuffer(void *va){
 
 void             
 Handle_PGFLT(uint va){
-  // cprintf("<PF 0x%x>\n", va);
   void * align_va = (void *)PGROUNDDOWN(va);
   uint pa;
   int mm_index = 0;
   pde_t *pgdir = myproc()->pgdir;
   pte_t *pte = walkpgdir(pgdir, align_va, 0);
-  // cprintf("in Handle_PGFLT: *pte = 0x%x\n", *pte);
   myproc()->page_fault_counter+=1;
   if(pte == 0){
     panic("in Handle_PGFLT, no page_table exits");
@@ -619,7 +615,6 @@ Handle_PGFLT(uint va){
     panic("user page isnt in physical memery after Handle_PGFLT\n");
   }
   *pte &= ~PTE_PG;
-  // cprintf("finish handle page fault, pte = 0x%x\n", *pte);
 }
 #endif
 
@@ -646,8 +641,6 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       if(pa == 0)
         panic("kfree");
       char *v = P2V(pa);
-      #if SELECTION!=NONE
-      #endif
       acquire(&page_cow_counters.lock);
       if(page_cow_counters.counters[pa/PGSIZE] == 0){
         kfree(v);
@@ -657,8 +650,6 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         panic("page_cow counter is negative");
       }
       release(&page_cow_counters.lock);
-      #if SELECTION!=NONE
-      #endif
       *pte = 0;
 #if SELECTION!=NONE
       if(myproc()->pid>2){
@@ -746,8 +737,7 @@ bad:
   freevm(d);
   return 0;
 }
-#if SELECTION!=NONE
-#endif
+
 pde_t*
 copyuvm_cow(pde_t *pgdir, uint sz)
 {
@@ -874,7 +864,6 @@ void
 handle_cow(uint va, int copy){
   char *mem = 0;
   uint pa;
-  // cprintf("<COW-handle 0x%x>\n", va);
   void * align_va = (void *)PGROUNDDOWN(va);
   pde_t *pgdir = myproc()->pgdir;
   pte_t *pte = walkpgdir(pgdir, align_va, 0);

@@ -25,8 +25,6 @@ static void wakeup1(void *chan);
 void
 pinit(void)
 {
-#if SELECTION!=NONE
-#endif
   initlock(&page_cow_counters.lock, "ptable");
   initlock(&ptable.lock, "ptable");
 }
@@ -215,8 +213,6 @@ fork(void)
   if((np = allocproc()) == 0){
     return -1;
   }
-#if SELECTION!=NONE
-#endif
   if(curproc->pid <= 2){
   // Copy process state from proc.
     if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0){
@@ -226,7 +222,6 @@ fork(void)
       return -1;
     }
   } else{
-    // TODO: check if cow should be in NONE..
     if((np->pgdir = copyuvm_cow(curproc->pgdir, curproc->sz)) == 0){
       kfree(np->kstack);
       np->kstack = 0;
