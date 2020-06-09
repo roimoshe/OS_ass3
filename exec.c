@@ -24,6 +24,10 @@ exec(char *path, char **argv)
     curproc->main_mem_pages[i].state_used = 0;
   }
 #endif
+
+#if SELECTION==SCFIFO || SELECTION==AQ
+    CleanQueue(curproc);
+#endif
   begin_op();
 
   if((ip = namei(path)) == 0){
@@ -43,9 +47,6 @@ exec(char *path, char **argv)
   if((pgdir = setupkvm()) == 0)
     goto bad;
 
-  #if SELECTION==SCFIFO || SELECTION==AQ
-     CleanQueue(curproc);
-  #endif
   // Load program into memory.
   sz = 0;
   for(i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)){

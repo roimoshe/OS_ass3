@@ -32,6 +32,7 @@ Test_1(){
   (*ptr_num)++;
   printf(1,"using *ptr memory and ++ \n");
   printf(1, "*ptr = %d\n", *ptr_num);
+  sbrk(-17*PGSIZE);
 }
 
 void
@@ -57,6 +58,38 @@ Test_2(){
    }
 }
 
+int
+Test_3(){
+  int freePages = getNumberOfFreePages();
+  printf(1,"number of free pages: %d\n",freePages);
+  printf(1,"call sbrk(4*PGSIZE)\n");
+  sbrk(4*PGSIZE);
+  printf(1,"number of free pages: %d\n", getNumberOfFreePages());
+  int pid = fork();
+  if(pid < 0 ){
+      printf(1, "Fork: error \n");
+      exit();
+  } 
+   // child
+   if(pid == 0){ 
+      sbrk(-4*PGSIZE);
+      printf(1,"number of free pages: %d\n", getNumberOfFreePages());
+      exit();
+   } 
+   // parent
+   else{
+      sleep(10);
+      sbrk(-4*PGSIZE);
+      printf(1,"number of free pages: %d\n", getNumberOfFreePages());
+      wait();
+   }
+   int newFreePages = getNumberOfFreePages();
+   printf(1,"number of free pages: %d\n", newFreePages);
+   if(freePages==newFreePages)
+    return 1;
+  return 0;
+}
+
 void  
 PrintPerformance(){
   #if SELECTION==NFUA
@@ -68,7 +101,7 @@ PrintPerformance(){
   #elif SELECTION==AQ
     printf(1,"--------- policy is AQ ---------\n");
   #endif
-  
+
   int numberOfFreePages = getNumberOfFreePages(); 
   int pageFaultCounter = get_page_fault_counter();
   int swapsOutCounter = get_swaps_out_counter();
@@ -89,6 +122,13 @@ main(int argc, char *argv[])
   Test_2();
   printf(1,"--------- PASS the second test ---------\n");
   
+  printf(1,"--------- third test ---------\n");
+  if(Test_3()){
+    printf(1,"--------- PASS the third test ---------\n");
+  }else{
+   printf(1,"--------- FAILED the third test ---------\n");
+  }
+
   printf(1,"--------- policy performance ---------\n");
   PrintPerformance();
   exit();
