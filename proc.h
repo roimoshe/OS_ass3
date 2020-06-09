@@ -84,8 +84,6 @@ struct proc {
   int swaps_out_counter;
 
   int page_queue[MAX_PSYC_PAGES];
-  //struct p_queue *queue_head;
-  //struct p_queue *queue_last;
   int queue_size;
 };
 

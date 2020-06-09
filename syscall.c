@@ -91,6 +91,8 @@ extern int sys_fork(void);
 extern int sys_fstat(void);
 extern int sys_getpid(void);
 extern int sys_getNumberOfFreePages(void);
+extern int sys_get_page_fault_counter(void);
+extern int sys_get_swaps_out_counter(void);
 extern int sys_kill(void);
 extern int sys_link(void);
 extern int sys_mkdir(void);
@@ -118,6 +120,8 @@ static int (*syscalls[])(void) = {
 [SYS_dup]     sys_dup,
 [SYS_getpid]  sys_getpid,
 [SYS_getNumberOfFreePages]  sys_getNumberOfFreePages,
+[SYS_get_page_fault_counter]  sys_get_page_fault_counter,
+[SYS_get_swaps_out_counter]  sys_get_swaps_out_counter,
 [SYS_sbrk]    sys_sbrk,
 [SYS_sleep]   sys_sleep,
 [SYS_uptime]  sys_uptime,

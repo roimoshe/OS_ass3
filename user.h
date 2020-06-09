@@ -21,6 +21,8 @@ int chdir(const char*);
 int dup(int);
 int getpid(void);
 int getNumberOfFreePages(void);
+int get_page_fault_counter(void);
+int get_swaps_out_counter(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);

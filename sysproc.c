@@ -49,6 +49,18 @@ sys_getNumberOfFreePages(void)
 }
 
 int
+sys_get_page_fault_counter(void)
+{
+  return myproc()->page_fault_counter;
+}
+
+int
+sys_get_swaps_out_counter(void)
+{
+  return myproc()->swaps_out_counter;
+}
+
+int
 sys_sbrk(void)
 {
   int addr;

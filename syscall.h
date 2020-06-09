@@ -21,3 +21,5 @@
 #define SYS_mkdir  20
 #define SYS_close  21
 #define SYS_getNumberOfFreePages  22
+#define SYS_get_page_fault_counter  23
+#define SYS_get_swaps_out_counter  23
