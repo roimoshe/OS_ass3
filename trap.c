@@ -99,6 +99,7 @@ trap(struct trapframe *tf)
     else{
       goto bad;
     }
+    break;
 #endif
 
 #if SELECTION!=NONE
@@ -114,7 +115,9 @@ trap(struct trapframe *tf)
 #endif
   //PAGEBREAK: 13
   default:
+#if SELECTION==NONE
   bad:
+#endif
     if(myproc() == 0 || (tf->cs&3) == 0){
       // In kernel, it must be our mistake.
       cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
