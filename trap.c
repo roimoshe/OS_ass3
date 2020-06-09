@@ -80,7 +80,6 @@ trap(struct trapframe *tf)
     lapiceoi();
     break;
 #if SELECTION!=NONE
-  //handling page fault TODO: check if segfault create t_PGFLT
   case T_PGFLT:
     pte = walkpgdir(myproc()->pgdir, (void *)PGROUNDDOWN(rcr2()), 0);
     if(pte == 0){

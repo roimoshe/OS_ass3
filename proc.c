@@ -13,7 +13,7 @@ struct {
   struct spinlock lock;
   struct proc proc[NPROC];
 } ptable;
-// TODO: lock the table
+
 static struct proc *initproc;
 int num_of_free_pages_after_kernel_load = 0;
 int nextpid = 1;
@@ -243,12 +243,12 @@ fork(void)
       }
     }
 
-    memmove(curproc->main_mem_pages, np->main_mem_pages, sizeof(struct page)*16);// TODO: check address correctness
-    memmove(curproc->swap_file_pages, np->swap_file_pages, sizeof(struct page)*16);// TODO: check address correctness
+    memmove(curproc->main_mem_pages, np->main_mem_pages, sizeof(struct page)*16);
+    memmove(curproc->swap_file_pages, np->swap_file_pages, sizeof(struct page)*16);
 
 #if SELECTION==SCFIFO || SELECTION==AQ
     // copy the queue to the son
-    memmove(curproc->page_queue, np->page_queue, sizeof(int)*16);// TODO: check address correctnes 
+    memmove(curproc->page_queue, np->page_queue, sizeof(int)*16);
     np->queue_size = curproc->queue_size;
 #endif
 }
@@ -329,9 +329,6 @@ exit(void)
         wakeup1(initproc);
     }
   }
-  #if VERBOSE_PRINT
-  cprintf("%d / %d free page frames in the system\n",get_num_of_free_pages(), num_of_free_pages_after_kernel_load); // TODO: maybe move it to wait()
-  #endif
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
   sched();
@@ -367,6 +364,9 @@ wait(void)
         p->killed = 0;
         p->state = UNUSED;
 #if SELECTION!=NONE
+        #if VERBOSE_PRINT
+        cprintf("%d / %d free page frames in the system\n",get_num_of_free_pages(), num_of_free_pages_after_kernel_load);
+        #endif
         if(p->pid>2){
           // free proc pages
           int i =0;
@@ -412,7 +412,6 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
-  num_of_free_pages_after_kernel_load = get_num_of_free_pages(); //TODO: done per processor, check if matter
   for(;;){
     // Enable interrupts on this processor.
     sti();
@@ -623,17 +622,21 @@ procdump(void)
   char *state;
   uint pc[10];
 
-  for(p = ptable.proc+2; p < &ptable.proc[NPROC]; p++){ //TODO: remove "+2" it is for debug
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->state == UNUSED)
       continue;
     if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
       state = states[p->state];
     else
-      state = "???"; // TODO: prints 0 pages for sh,init...
+      state = "???";
 #if SELECTION!=NONE
-    cprintf("%d %s <allocated memory pages %d> <paged out %d> <page faults %d> <total paged out %d> %s\n", p->pid, state, 
-      get_number_of_allocated_memory_pages(p), get_number_of_swaped_out_pages(p), p->page_fault_counter,
-      p->swaps_out_counter, p->name);
+    if(p->pid > 2){
+      cprintf("%d %s <allocated memory pages %d> <paged out %d> <page faults %d> <total paged out %d> %s\n", p->pid, state, 
+        get_number_of_allocated_memory_pages(p), get_number_of_swaped_out_pages(p), p->page_fault_counter,
+        p->swaps_out_counter, p->name);
+    } else {
+      cprintf("%d %s %s", p->pid, state, p->name);
+    }
 #else
     cprintf("%d %s %s", p->pid, state, p->name);
 #endif

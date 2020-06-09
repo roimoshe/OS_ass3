@@ -246,7 +246,6 @@ InitPage(struct proc *p, pde_t *pgdir, void *va, uint pa, int index){
   #if SELECTION==SCFIFO || SELECTION==AQ
   QueuePage(p,index);
   #endif
-  //Todo: need to update lcr3?
   return 0;
 }
 
@@ -392,10 +391,9 @@ GetSwapPageIndex(struct proc *p){
 #elif SELECTION==LAPA
   return LAP_AGING_Algo(p);
 #elif SELECTION==SCFIFO
-  // cprintf("in SCFIFO-------->\n");
   return Second_chance_FIFO_Algo(p);
 #elif SELECTION==AQ
-  return AQ_Algo(p);// TODO: replace
+  return AQ_Algo(p);
 #endif
 panic("GetSwapPageIndex: no selection choosen\n");
 }
@@ -438,11 +436,11 @@ SwapOutPage(pde_t *pgdir){
   #if SELECTION!=LAPA && SELECTION!=NFUA
   clearPages_PTE_A_Flag(myproc());
   #endif
- //TODO: handle case in which the swapedout page is cow
+
   if(mm_index <0 || mm_index>15)
     panic("swappage: somthing wrong");
 
-  void *mm_va = myproc()->main_mem_pages[mm_index].v_addr; // TODO: here we choose page to swapout
+  void *mm_va = myproc()->main_mem_pages[mm_index].v_addr;
   pte_t *pte = walkpgdir(pgdir, mm_va, 0);
   
   //checkng page is private user
@@ -553,9 +551,9 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 #endif
   }
   return newsz;
-#if SELECTION!=NONE
 }
 
+#if SELECTION!=NONE
 int
 ImportFromFilePageToBuffer(void *va){
   int  i = 0;
@@ -586,7 +584,7 @@ Handle_PGFLT(uint va){
   if(pte == 0){
     panic("in Handle_PGFLT, no page_table exits");
   } else if(!(*pte & PTE_PG)){
-    panic("in Handle_PGFLT, got T_PGFLT but page isnt in the swap file"); // TODO: check this case
+    panic("in Handle_PGFLT, got T_PGFLT but page isnt in the swap file");
   }
   // free the page to buffer from swap file
   ImportFromFilePageToBuffer(align_va);
@@ -622,8 +620,8 @@ Handle_PGFLT(uint va){
   }
   *pte &= ~PTE_PG;
   // cprintf("finish handle page fault, pte = 0x%x\n", *pte);
-#endif
 }
+#endif
 
 // Deallocate user pages to bring the process size from oldsz to
 // newsz.  oldsz and newsz need not be page-aligned, nor does newsz
@@ -730,7 +728,7 @@ copyuvm(pde_t *pgdir, uint sz)
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
       panic("copyuvm: pte should exist");
-    if(!(*pte & PTE_P)) // TODO: shouldnt be good if we have swaps
+    if(!(*pte & PTE_P)) // shouldnt be good if we have swaps, therefore we use this func if pid<2
       panic("copyuvm: page not present");
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
