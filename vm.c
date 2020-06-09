@@ -254,25 +254,32 @@ int
 NFU_AGING_Algo(struct proc *p){
   int mm_index = 0;
   int i=0;
-  uint minCounter = p->main_mem_pages[mm_index].counter;
-  uint maxCounter = p->main_mem_pages[mm_index].counter;//for debug only Todo: delete
-  if(p->main_mem_pages[mm_index].state_used == 0){
-    panic("NFU_AGING_Algo: found unused page in main_mem_pages arr");
-  }
-  i++;
+  uint minCounter = __UINT32_MAX__;
+  pte_t *pte;
+  char foundFlag=0;
   while(i<16){
     if(p->main_mem_pages[i].state_used == 0)
       panic("NFU_AGING_Algo: found unused page in main_mem_pages arr");
-    //finidng used page in main memory
-    if(p->main_mem_pages[i].counter< minCounter){
-      minCounter = p->main_mem_pages[i].counter;
-      mm_index = i;
+     
+    pte = walkpgdir(p->pgdir, p->main_mem_pages[i].v_addr, 0);
+  
+    //checkng page is private user
+    if((*pte & PTE_U) == 0){
+      // page is not private continue
     }
-    if(p->main_mem_pages[i].counter> maxCounter){
-      maxCounter = p->main_mem_pages[i].counter;
+    else{
+      //finidng used page in main memory
+      if(p->main_mem_pages[i].counter<= minCounter){
+        foundFlag = 1;
+        minCounter = p->main_mem_pages[i].counter;
+        mm_index = i;
+      }
     }
     i++;
   }
+  if(!foundFlag)
+    panic("NFU_AGING_Algo didnt found page");
+
   return mm_index;
 }
 
@@ -289,37 +296,49 @@ int
 LAP_AGING_Algo(struct proc *p){
   int mm_index = 0;
   int i=0;
-  uint minCounter_1 = p->main_mem_pages[mm_index].counter;
-  uint num_of_1 = GetSetBits(p->main_mem_pages[mm_index].counter);
-  if(p->main_mem_pages[mm_index].state_used == 0){
-    panic("LAP_AGING_Algo: found unused page in main_mem_pages arr");
-  }
-  i++;
+  uint minCounter_1 = __UINT32_MAX__;
+  uint num_of_1 = __UINT32_MAX__;
+  pte_t *pte;
+  char foundFlag=0;
+
   while(i<16){
     if(p->main_mem_pages[i].state_used == 0)
       panic("LAP_AGING_Algo: found unused page in main_mem_pages arr");
-    //finidng used page in main memory
-    int curr_num_of_1 = GetSetBits(p->main_mem_pages[i].counter);
-    if(curr_num_of_1 < num_of_1){
-      minCounter_1 = p->main_mem_pages[i].counter;
-      mm_index = i;
-      num_of_1 = curr_num_of_1;
+    
+    pte = walkpgdir(p->pgdir, p->main_mem_pages[i].v_addr, 0);
+    //checkng page is private user
+    if((*pte & PTE_U) == 0){
+      // page is not private continue
     }
-    else if(curr_num_of_1 == num_of_1){
-      if(p->main_mem_pages[i].counter < minCounter_1){
+    else{
+      //finidng used page in main memory
+      int curr_num_of_1 = GetSetBits(p->main_mem_pages[i].counter);
+      if(curr_num_of_1 <= num_of_1){
         minCounter_1 = p->main_mem_pages[i].counter;
         mm_index = i;
+        num_of_1 = curr_num_of_1;
+        foundFlag = 1;
+      }
+      else if(curr_num_of_1 == num_of_1){
+        if(p->main_mem_pages[i].counter < minCounter_1){
+          minCounter_1 = p->main_mem_pages[i].counter;
+          mm_index = i;
+        }
       }
     }
     i++;
   }
+  if(!foundFlag)
+    panic("LAP_AGING_Algo didnt found page");
+
   return mm_index;
 }
 
 int
 Second_chance_FIFO_Algo(struct proc *p){
   pte_t *pte;
-  cprintf("second change fifo queue size=%d\n", p->queue_size);
+  //cprintf("second change fifo queue size=%d\n", p->queue_size);
+  int first_not_PU = -1;
   for (int i=0; i< p->queue_size; i++){
     int currPageIndex = DequeuePage(p);
     if(currPageIndex == -1 || currPageIndex > MAX_PSYC_PAGES)
@@ -327,21 +346,42 @@ Second_chance_FIFO_Algo(struct proc *p){
     
     struct page curr_page = p->main_mem_pages[currPageIndex];
     if(curr_page.state_used == 0)
-      panic("NFU_AGING_Algo: found unused page in main_mem_pages arr");
+      panic("Second_chance_FIFO_Algo: found unused page in main_mem_pages arr");
 
     //finidng used page in main memory
     pte = walkpgdir(p->pgdir, curr_page.v_addr, 0);
-    if(!(*pte & PTE_A))
+
+    if((*pte & PTE_U) && !(*pte & PTE_A))
       return currPageIndex;
+
+    if((*pte & PTE_U) && (first_not_PU==-1))
+      first_not_PU = currPageIndex;
 
     QueuePage(p,currPageIndex);
   }
-  return DequeuePage(p);
+  if(first_not_PU==-1)
+    panic("Second_chance_FIFO_Algo didnt found page");
+  QueueRemovePage(p, first_not_PU);
+  return first_not_PU;
 }
 
 int
 AQ_Algo(struct proc *p){
-  return DequeuePage(p);
+  pte_t *pte;
+  int currPageIndex;
+  for(int i=0;i<16;i++){
+    currPageIndex = DequeuePage(p);
+    pte = walkpgdir(p->pgdir, p->main_mem_pages[currPageIndex].v_addr, 0);
+    //checkng page is private user
+    if((*pte & PTE_U) == 0){
+      // page is not private continue
+      QueuePage(p, currPageIndex);
+    }
+    else{
+      return currPageIndex;
+    }
+  }
+  panic("AQ_Algo didnt found page");
 }
 
 
@@ -384,7 +424,11 @@ SwapOutPage(pde_t *pgdir){
     panic("swappage: somthing wrong");
 
   void *mm_va = myproc()->main_mem_pages[mm_index].v_addr; // TODO: here we choose page to swapout
-  //uint pa = V2P(mm_va);
+  pte_t *pte = walkpgdir(pgdir, mm_va, 0);
+  
+  //checkng page is private user
+  if((*pte & PTE_U) == 0)
+    panic("swap page not private user page");
 
   // cprintf("swapout page : 0x%x\n", mm_va);
   writeToSwapFile(myproc(), mm_va, sp_index*PGSIZE, PGSIZE);
@@ -396,7 +440,7 @@ SwapOutPage(pde_t *pgdir){
   ResetPageCounter(myproc(), mm_index);
   acquire(&page_cow_counters.lock);
   // update pte flags
-  pte_t *pte = walkpgdir(pgdir, mm_va, 0);
+ 
   uint pa = PTE_ADDR(*pte);
   
   if((*pte & PTE_COW) || (*pte & PTE_COW_RO)){
