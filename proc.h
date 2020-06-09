@@ -78,7 +78,7 @@ struct proc {
   char name[16];               // Process name (debugging)
   //Swap file. must initiate with create swap file
   struct file *swapFile;      //page file
-
+#if SELECTION!=NONE
   struct page main_mem_pages[MAX_PSYC_PAGES]; //page in main memmory
   struct page swap_file_pages[MAX_PSYC_PAGES]; //page in swap file
   int page_fault_counter;
@@ -88,7 +88,7 @@ struct proc {
   //struct p_queue *queue_head;
   //struct p_queue *queue_last;
   int queue_size;
-
+#endif
 };
 
 // Process memory is laid out contiguously, low addresses first:

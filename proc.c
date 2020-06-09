@@ -7,8 +7,8 @@
 #include "proc.h"
 #if SELECTION!=NONE
 static char buffer[PGSIZE];// for IO to Swap file
-extern page_cow_counters_t page_cow_counters;
 #endif
+extern page_cow_counters_t page_cow_counters;
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -26,8 +26,8 @@ void
 pinit(void)
 {
 #if SELECTION!=NONE
-  initlock(&page_cow_counters.lock, "ptable");
 #endif
+  initlock(&page_cow_counters.lock, "ptable");
   initlock(&ptable.lock, "ptable");
 }
 
@@ -216,8 +216,8 @@ fork(void)
     return -1;
   }
 #if SELECTION!=NONE
-  if(curproc->pid <= 2){
 #endif
+  if(curproc->pid <= 2){
   // Copy process state from proc.
     if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0){
       kfree(np->kstack);
@@ -225,7 +225,6 @@ fork(void)
       np->state = UNUSED;
       return -1;
     }
-#if SELECTION!=NONE
   } else{
     // TODO: check if cow should be in NONE..
     if((np->pgdir = copyuvm_cow(curproc->pgdir, curproc->sz)) == 0){
@@ -235,6 +234,7 @@ fork(void)
       return -1;
     }
   }
+#if SELECTION!=NONE
   if(curproc->pid>2){
     for(int i=0;i<16;i++){
       if (curproc->swap_file_pages[i].state_used){

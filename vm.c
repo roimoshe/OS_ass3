@@ -6,9 +6,9 @@
 #include "mmu.h"
 #include "proc.h"
 #include "elf.h"
+page_cow_counters_t page_cow_counters = {0};
 #if SELECTION!=NONE
 static char buffer[PGSIZE];// for IO to Swap file
-page_cow_counters_t page_cow_counters = {0};
 #endif
 extern char data[];  // defined by kernel.ld
 
@@ -647,17 +647,17 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
         panic("kfree");
       char *v = P2V(pa);
       #if SELECTION!=NONE
+      #endif
       acquire(&page_cow_counters.lock);
       if(page_cow_counters.counters[pa/PGSIZE] == 0){
-      #endif
         kfree(v);
-      #if SELECTION!=NONE
       } else if(page_cow_counters.counters[pa/PGSIZE] > 0){
         page_cow_counters.counters[pa/PGSIZE]--;
       } else{
         panic("page_cow counter is negative");
       }
       release(&page_cow_counters.lock);
+      #if SELECTION!=NONE
       #endif
       *pte = 0;
 #if SELECTION!=NONE
@@ -747,6 +747,7 @@ bad:
   return 0;
 }
 #if SELECTION!=NONE
+#endif
 pde_t*
 copyuvm_cow(pde_t *pgdir, uint sz)
 {
@@ -786,7 +787,6 @@ bad:
   freevm(new_pgdir);
   return 0;
 }
-#endif
 //PAGEBREAK!
 // Map user virtual address to kernel address.
 char*
@@ -869,7 +869,7 @@ remove_cow_flags(pte_t *pte){
     panic("remove_cow_flags: no cow case\n");
   }
 }
-#if SELECTION!=NONE
+
 void
 handle_cow(uint va, int copy){
   char *mem = 0;
@@ -896,6 +896,7 @@ handle_cow(uint va, int copy){
   lcr3(V2P(myproc()->pgdir));
 }
 
+#if SELECTION!=NONE
 void
 QueuePage(struct proc *p, int pageIndex){
   if(pageIndex >= MAX_PSYC_PAGES || pageIndex< 0 || p->queue_size==MAX_PSYC_PAGES){
