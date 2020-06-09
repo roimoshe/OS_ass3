@@ -1,70 +1,95 @@
-
 #include "types.h"
 #include "stat.h"
 #include "user.h"
 
-
-
 #define PGSIZE 4096
 
 void
-test2(){
-   printf(1,"<<< Test 2 >>>\n");
-   int number_ptr = 1;
-   int pid = fork();
-   if(pid < 0 ){
-      printf(1, "error in fork!\n");
-      exit();
-   } else if(pid == 0){ //child
-     number_ptr = 2;
-     printf(1, "in child(suppose to be 2): number_ptr is %d\n", number_ptr);
-     exit();
-   } else{
-     number_ptr = 3;
-     sleep(10);
-     printf(1, "in parent(suppose to be 3): number_ptr is %d\n", number_ptr);
-     wait();
-   }
-   printf(1,"<<< PASS Test 2 >>>\n");
+Test_1(){
+  int *ptr_num = 0;
+  printf(1,"call sbrk(4*PGSIZE)\n");
+  char *addr = sbrk(4*PGSIZE);
+  printf(1,"finished: sbrk(4*PGSIZE)\n");
+  sleep(10);
+  printf(1,"set ptr to sbrk return value plus 3*PGSIZE\n");
+  ptr_num = (int *)(addr + 3*PGSIZE);
+  printf(1,"using *ptr memory\n");
+  *ptr_num = 12;
+  printf(1, "*ptr = %d\n", *ptr_num);
+  printf(1,"call sbrk(PGSIZE)\n");
+  sbrk(PGSIZE);
+  printf(1,"finished: sbrk(PGSIZE)\n");
+  printf(1,"using *ptr memory and add 15\n");
+  *ptr_num = (*ptr_num) + 15;
+  printf(1, "*ptr = %d\n", *ptr_num);
+  printf(1,"call sbrk(12*PGSIZE)\n");
+  sbrk(12*PGSIZE);
+  printf(1,"finished: sbrk(12*PGSIZE)\n");
+  ptr_num = (int *)(addr + PGSIZE * 10);
+  printf(1,"set ptr to first sbrk return value and add 10*PGSIZE\n");
+  *ptr_num = 700;
+  printf(1,"seting *ptr memory to 700\n");
+  (*ptr_num)++;
+  printf(1,"using *ptr memory and ++ \n");
+  printf(1, "*ptr = %d\n", *ptr_num);
 }
 
 void
-test1(){
-  int *number_ptr = 0;
-  printf(1,"<<< Test 1 >>>\n");
-  printf(1,"call sbrk(4*PGSIZE)\n");
-  char *addr = sbrk(4*PGSIZE);
-  printf(1,"after call sbrk(4*PGSIZE)\n");
-  sleep(10);
-  printf(1,"set number_ptr to sbrk ret value plus 3*PGSIZE\n");
-  number_ptr = (int *)(addr + 3*PGSIZE);
-  printf(1,"access *number_ptr\n");
-  *number_ptr = 12;
-  printf(1, "*number_ptr = %d\n", *number_ptr);
-  printf(1,"call sbrk(PGSIZE)\n");
-  sbrk(PGSIZE);
-  printf(1,"after call sbrk(PGSIZE)\n");
-  printf(1,"access *number_ptr and increment it by 20\n");
-  *number_ptr = (*number_ptr) + 20;
-  printf(1, "*number_ptr = %d\n", *number_ptr);
-  printf(1,"call sbrk(12*PGSIZE)\n");
-  sbrk(12*PGSIZE);
-  printf(1,"after call sbrk(12*PGSIZE)\n");
-  number_ptr = (int *)(addr + PGSIZE * 10);
-  printf(1,"set number_ptr to first sbrk ret value plus 10*PGSIZE\n");
-  *number_ptr = 800;
-  printf(1,"access *number_ptr set it to 800\n");
-  (*number_ptr)++;
-  printf(1,"access *number_ptr and increment it by 1\n");
-  printf(1, "*number_ptr = %d\n", *number_ptr);
-  printf(1,"<<< PASS Test 1 >>>\n");
+Test_2(){
+   int num;
+   int pid = fork();
+   if(pid < 0 ){
+      printf(1, "Fork: error \n");
+      exit();
+   } 
+   // child
+   if(pid == 0){ 
+     num = 1;
+     printf(1, "Child [suppose to be 1]: num is %d\n", num);
+     exit();
+   } 
+   // parent
+   else{
+     num = 0;
+     sleep(10);
+     printf(1, "Parent [suppose to be 0]: num is %d\n", num);
+     wait();
+   }
+}
+
+void  
+PrintPerformance(){
+  #if SELECTION==NFUA
+    printf(1,"--------- policy is NFUA ---------\n");;
+  #elif SELECTION==LAPA
+    printf(1,"--------- policy is LAPA ---------\n");
+  #elif SELECTION==SCFIFO
+    printf(1,"--------- policy is SCFIFO ---------\n");
+  #elif SELECTION==AQ
+    printf(1,"--------- policy is AQ ---------\n");
+  #endif
+  
+  int numberOfFreePages = getNumberOfFreePages(); 
+  int pageFaultCounter = get_page_fault_counter();
+  int swapsOutCounter = get_swaps_out_counter();
+
+  printf(1,"number of free pages: %d\n", numberOfFreePages);
+  printf(1,"number of swaps out pages: %d\n", swapsOutCounter);
+  printf(1,"number of page faults : %d\n", pageFaultCounter);
 }
 
 int
 main(int argc, char *argv[])
 {
-  test1();
-  test2();
+  printf(1,"--------- first test ---------\n");
+  Test_1();
+  printf(1,"--------- PASS the first test---------\n");
   
+  printf(1,"--------- second test ---------\n");
+  Test_2();
+  printf(1,"--------- PASS the second test ---------\n");
+  
+  printf(1,"--------- policy performance ---------\n");
+  PrintPerformance();
   exit();
 }
