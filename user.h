@@ -1,6 +1,12 @@
 struct stat;
 struct rtcdate;
 
+#define NFUA 0
+#define LAPA 1
+#define SCFIFO 2
+#define AQ 3
+#define NONE 4
+
 // system calls
 int fork(void);
 int exit(void) __attribute__((noreturn));
