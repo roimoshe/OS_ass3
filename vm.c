@@ -401,6 +401,22 @@ panic("GetSwapPageIndex: no selection choosen\n");
 }
 
 void
+clearPages_PTE_A_Flag(struct proc *p){
+  pte_t *pte;
+  for(int i=0; i<16; i++){
+    if(p->main_mem_pages[i].state_used){
+      pte = walkpgdir(p->pgdir, p->main_mem_pages[i].v_addr, 0);
+      if(pte==0)
+        continue;
+
+      *pte = *pte & ~PTE_A;// reset the flag
+    }
+  }
+  lcr3(V2P(p->pgdir));
+}
+
+
+void
 SwapOutPage(pde_t *pgdir){
   int sp_index = 0;
   int mm_index = 0;
@@ -419,6 +435,9 @@ SwapOutPage(pde_t *pgdir){
   }
   //finidng used page in main memory by algo
   mm_index = GetSwapPageIndex(myproc());
+  #if SELECTION!=LAPA && SELECTION!=NFUA
+  clearPages_PTE_A_Flag(myproc());
+  #endif
  //TODO: handle case in which the swapedout page is cow
   if(mm_index <0 || mm_index>15)
     panic("swappage: somthing wrong");
