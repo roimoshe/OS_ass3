@@ -79,7 +79,6 @@ trap(struct trapframe *tf)
             cpuid(), tf->cs, tf->eip);
     lapiceoi();
     break;
-#if SELECTION!=NONE
   case T_PGFLT:
     pte = walkpgdir(myproc()->pgdir, (void *)PGROUNDDOWN(rcr2()), 0);
     if(pte == 0){
@@ -95,7 +94,15 @@ trap(struct trapframe *tf)
       if(rel){
         release(&page_cow_counters.lock);
       }
-    } else{ //page_fault
+    }
+#if SELECTION==NONE
+    else{
+      goto bad;
+    }
+#endif
+
+#if SELECTION!=NONE
+    else{ //page_fault
       //switch case by the page replacment algo
 #if SELECTION==AQ
       update_AQ();
@@ -107,6 +114,7 @@ trap(struct trapframe *tf)
 #endif
   //PAGEBREAK: 13
   default:
+  bad:
     if(myproc() == 0 || (tf->cs&3) == 0){
       // In kernel, it must be our mistake.
       cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",

@@ -211,16 +211,16 @@ int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
 #if SELECTION!=NONE
 void            Handle_PGFLT(uint va);//handle PGFLT trap in trap.c
-void            handle_cow(uint va, int copy);
 void            UpdatePageCounters(void);
 void            update_AQ(void);
 void            ResetPageCounter(struct proc *p, int index);
-pte_t          *walkpgdir(pde_t *pgdir, const void *va, int alloc);
 void            QueuePage(struct proc *p, int pageIndex);
 int             DequeuePage(struct proc *p);
 int             QueueRemovePage(struct proc *p, int pageIndex);
 void             CleanQueue(struct proc *p);
 #endif
+pte_t          *walkpgdir(pde_t *pgdir, const void *va, int alloc);
+void            handle_cow(uint va, int copy);
 int get_num_of_free_pages();
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
